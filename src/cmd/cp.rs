@@ -1,5 +1,6 @@
 use std::fs;
 /// cp utility according to https://pubs.opengroup.org/onlinepubs/9699919799/utilities/cp.html
+/// TODO: handle allowed options
 pub fn cp(args: &[String]) -> Result<String, String> {
     match args.len() {
         0 => Err("cp: missing file operand".into()),

@@ -7,6 +7,7 @@ pub fn run_command(cmd: &str, args: &[String]) -> Result<String, String> {
         "echo" => echo(args),
         "cp" => cp::cp(args),
         "exit" => process::exit(0),
+        "clear" => Ok("\x1b[H\x1b[2J\x1b[3J".into()),
         _ => Err(format!("Command '{}' not found", cmd)),
     }
 }

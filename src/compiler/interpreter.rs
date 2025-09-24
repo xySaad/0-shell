@@ -22,6 +22,9 @@ impl<T: Fn() -> String> Interpreter<T> {
         return self.parse_sequence(p);
     }
 
+    /// Parses a sequence until a delimiter occurs or `seq` has been fully consumed.
+    ///
+    /// Note: when a delimiter occurs the result is returned immediatly and the rest of `seq` is not necessary consumed.
     pub fn parse_sequence(&self, mut seq: impl Iterator<Item = Node>) -> Vec<String> {
         let mut command = Vec::new();
         let mut current = String::new();
@@ -53,6 +56,26 @@ impl<T: Fn() -> String> Interpreter<T> {
         return command;
     }
 
+    /// Parses substitution sequences, executes each command, and joins results with spaces.
+    pub fn parse_substitution(&self, seq: impl Iterator<Item = Node>) -> String {
+        let mut iter = seq.peekable();
+        let mut result = Vec::new();
+
+        while let Some(_) = iter.peek() {
+            let command = self.parse_sequence(&mut iter);
+            let line = match run_command(&command[0], &command[1..]) {
+                Ok(res) => res,
+                Err(err) => {
+                    let _ = cli::error(&err.to_string());
+                    String::new()
+                }
+            };
+            result.push(line);
+        }
+
+        return result.join(" ");
+    }
+
     fn node_to_string(&self, node: Node) -> String {
         match node {
             Node::Raw(str) => str,
@@ -66,16 +89,7 @@ impl<T: Fn() -> String> Interpreter<T> {
             }
             Node::ParameterExpansion(param) => self.envar(&param),
             // https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_03
-            Node::Substitution { value, .. } => {
-                let result = self.parse_sequence(value.into_iter());
-                match run_command(&result[0], &result[1..]) {
-                    Ok(res) => res,
-                    Err(err) => {
-                        let _ = cli::error(&err.to_string());
-                        String::new()
-                    }
-                }
-            }
+            Node::Substitution { value, .. } => self.parse_substitution(value.into_iter()),
             Node::WhiteSpace(ch) => ch.into(),
             Node::Operator(_op) => todo!(),
             // Delimiter shouldn't occur here!

@@ -1,7 +1,7 @@
 use crate::compiler::{
     nodes::{self, Node, Sequence, SubstitutionKind},
     tokenizer::Tokenizer,
-    tokens::{self, Token},
+    tokens::{self, Quote, Token},
 };
 
 /// Parses shell input according to [`POSIX Shell Command Language`](https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html)
@@ -28,8 +28,14 @@ impl<T: Fn() -> String> Parser<T> {
         }
     }
 
-    pub fn feed(&mut self, source: &str) {
-        self.tokenizer.feed(source)
+    pub fn feed(&mut self) -> bool {
+        match &self.reader {
+            None => false,
+            Some(read) => {
+                self.tokenizer.feed(&read());
+                true
+            }
+        }
     }
 
     fn get_raw<P: Into<String>>(&mut self, first: P) -> String {
@@ -42,26 +48,23 @@ impl<T: Fn() -> String> Parser<T> {
 
         str
     }
-    /// collects next tokens until `func` is true
-    fn get_sequence<P: Fn(Token) -> bool>(&mut self, func: P) -> Sequence {
+
+    /// collects next tokens while `until` is false
+    fn get_sequence<P: Fn(Token) -> bool>(&mut self, until: P) -> Sequence {
         let mut seq = Sequence::new();
 
-        while func(self.tokenizer.current) {
-            let next = self.next();
-
-            // the whole input string has consumed but closing didn't occur yet
-            if next.is_none() {
-                match &self.reader {
-                    Some(read) => {
-                        self.feed(&read());
-                    }
-                    None => todo!("return error"),
-                }
-
+        while !until(self.tokenizer.current) {
+            if let Some(token) = self.next() {
+                seq.push(token);
                 continue;
             }
 
-            seq.push(next.unwrap());
+            // the whole input string has consumed but closing didn't occur yet
+            // if couldn't feed with more input break with EOF
+            if !self.feed() {
+                seq.push(Node::EOF);
+                break;
+            }
         }
 
         self.tokenizer.next(); // consume closing
@@ -70,22 +73,23 @@ impl<T: Fn() -> String> Parser<T> {
 
     fn get_quoted(&mut self, quote: tokens::Quote) -> Node {
         let inside_double = matches!(self.context, Some(Token::Quote(tokens::Quote::Double)));
+
         match quote {
             // single quote has no meaning inside double quotes
-            tokens::Quote::Single if inside_double => Node::Raw(self.get_raw('\'')),
+            Quote::Single if inside_double => Node::Raw(self.get_raw('\'')),
             q => {
                 self.context = Some(Token::Quote(q));
-                let seq = self.get_sequence(|t| !matches!(t, Token::Quote(q2) if quote == q2));
+                let seq = self.get_sequence(|t| matches!(t, Token::Quote(q2) if quote == q2));
                 match q {
-                    tokens::Quote::Double => Node::Quoted {
+                    Quote::Double => Node::Quoted {
                         kind: nodes::Quote::Double,
                         value: seq,
                     },
-                    tokens::Quote::Back => Node::Substitution {
+                    Quote::Back => Node::Substitution {
                         kind: SubstitutionKind::BackQuote,
                         value: seq,
                     },
-                    tokens::Quote::Single => Node::Quoted {
+                    Quote::Single => Node::Quoted {
                         kind: nodes::Quote::Single,
                         value: seq,
                     },
@@ -98,12 +102,12 @@ impl<T: Fn() -> String> Parser<T> {
         self.context = Some(Token::DollarSign);
 
         // handle Substitution $(...)
-        if matches!(self.tokenizer.current, Token::Bracket('(')) {
+        if let Token::Bracket('(') = self.tokenizer.current {
             // TODO: handle arithmetic expansion [https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_06_04]
             self.tokenizer.next(); // consume opening bracket '('
             return Node::Substitution {
                 kind: SubstitutionKind::RoundBracket,
-                value: self.get_sequence(|t| !matches!(t, Token::Bracket(')'))),
+                value: self.get_sequence(|t| matches!(t, Token::Bracket(')'))),
             };
         }
 
@@ -122,13 +126,13 @@ impl<T: Fn() -> String> Parser<T> {
         let next = self.tokenizer.next();
 
         match next {
-            None => match &self.reader {
-                Some(read) => {
-                    self.feed(&read());
+            None => {
+                return if self.feed() {
                     self.escape_next()
-                }
-                None => todo!("return error"),
-            },
+                } else {
+                    Node::EOF
+                };
+            }
             Some(next) => match self.context {
                 Some(Quote(ctx)) if matches!(ctx, Double | Back) => {
                     match next {
@@ -148,6 +152,18 @@ impl<T: Fn() -> String> Parser<T> {
                 }
                 _ => Node::Raw(next.into()),
             },
+        }
+    }
+    fn handle_white_space(&self, w: char) -> Node {
+        use Token::*;
+        use tokens::Quote::*;
+
+        let inside_substitution = matches!(self.context, Some(DollarSign | Quote(Back)));
+        // escaped newline in substitution is a line continuation
+        if inside_substitution && w == '\n' {
+            Node::Delimiter
+        } else {
+            Node::WhiteSpace(w)
         }
     }
 }
@@ -170,7 +186,7 @@ impl<T: Fn() -> String> Iterator for Parser<T> {
             Token::DollarSign => self.handle_dollar_sign(),
             Token::BackSlash => self.escape_next(),
             Token::Operator(op) => Node::Operator(op),
-            Token::Delimiter(d) => Node::Delimiter(d),
+            Token::WhiteSpace(w) => self.handle_white_space(w),
             Token::Bracket(ch) => Node::Raw(ch.into()),
             Token::EOF => Node::EOF,
         };

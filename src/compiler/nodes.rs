@@ -1,4 +1,3 @@
-
 use super::tokens::*;
 
 #[derive(Debug, PartialEq)]
@@ -36,7 +35,8 @@ pub enum Node {
         kind: SubstitutionKind,
         value: Sequence,
     },
-    Delimiter(char),
+    WhiteSpace(char),
     Operator(Operator),
+    Delimiter,
     EOF,
 }

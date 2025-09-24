@@ -121,37 +121,34 @@ impl<T: Fn() -> String> Parser<T> {
     }
 
     fn escape_next(&mut self) -> Node {
-        use tokens::{Quote::*, Token::*};
+        use Token::*;
+        use tokens::Quote::*;
         // Get the next token after the backslash
-        let next = self.tokenizer.next();
-
-        match next {
-            None => {
-                return if self.feed() {
-                    self.escape_next()
-                } else {
-                    Node::EOF
-                };
-            }
-            Some(next) => match self.context {
-                Some(Quote(ctx)) if matches!(ctx, Double | Back) => {
-                    match next {
-                        // Inside double-quoted strings
-                        DollarSign | Quote(Double | Back) | BackSlash if matches!(ctx, Double) => {
-                            Node::Raw(next.into())
-                        }
-                        // Inside backquoted substitutions
-                        DollarSign | Quote(Back) | BackSlash => Node::Raw(next.into()),
-                        _ => {
-                            // For non-escapable characters, preserve the backslash and include the character
-                            let mut result = String::from("\\");
-                            result.push_str(&String::from(next));
-                            Node::Raw(result)
-                        }
-                    }
+        loop {
+            // the whole input string has consumed but closing didn't occur yet
+            let Some(token) = self.tokenizer.next() else {
+                if self.feed() {
+                    continue;
                 }
-                _ => Node::Raw(next.into()),
-            },
+
+                // if couldn't feed with more input break with EOF
+                return Node::EOF;
+            };
+
+            // https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_02_01
+            if let WhiteSpace('\n') = token {
+                return self.next().unwrap_or(Node::EOF);
+            }
+
+            return match self.context {
+                // inside Double-Quotes https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_02_03
+                Some(Quote(Double)) => match token {
+                    DollarSign | Quote(Back | Double) | BackSlash => Node::Raw(token.into()),
+                    _ => Node::Raw(String::from("\\") + &String::from(token)),
+                },
+
+                _ => Node::Raw(token.into()),
+            };
         }
     }
     fn handle_white_space(&self, w: char) -> Node {

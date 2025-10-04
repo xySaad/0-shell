@@ -1,5 +1,8 @@
-use std::fs;
-/// cp utility according to https://pubs.opengroup.org/onlinepubs/9699919799/utilities/cp.html
-pub fn pwd(args: &[String]) -> i32 {
+// use std::fs;
+// cp utility according to https://pubs.opengroup.org/onlinepubs/9699919799/utilities/cp.html
+pub fn pwd(args: &[String]) -> Result<String, String> {
 
+
+
+    Ok("OK".to_string())
 }

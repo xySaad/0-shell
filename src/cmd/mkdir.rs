@@ -8,7 +8,7 @@ pub fn mkdir(args: &[String]) -> Result<String, String> {
         if !Path::new(name).exists() {
             match fs::create_dir(name) {
                 Ok(_) => println!("folder created, {}", name),
-                Err(e) => println!("cannot create the folder, Error: {}", e)
+                Err(e) => eprintln!("cannot create the folder, Error: {}", e)
             };
         } else {
             println!("folder already exist {}", name);

@@ -1,14 +1,86 @@
-// use std::fs;
+use std::env;
+use std::fs;
+use std::path::PathBuf;
 // use std::path::Path;
 
-// cd - change the working directory
+// ----- change the working directory -----
 // https://pubs.opengroup.org/onlinepubs/9699919799/utilities/cd.html#tag_20_14
 pub fn cd(args: &[String]) -> Result<String, String> {
-    println!("{:?}", args);
+    println!("arguments: {:?}", args);
+    let mut path = String::new();
+    match args.len() {
+        0 => path = "/root/home/Zone_01/0-shell/test".to_string(),
+        1 => path = args[0].to_string(),
+        _ => return Ok("bash: cd: too many arguments".to_string())
+    };
+
+    let current_dir: Result<std::path::PathBuf, std::io::Error> = env::current_dir();
+    println!("{:?}", current_dir);
+    match &path {
+        p  if p == "-" => return Ok("go back to the previeus path".to_string()),
+        p  if p == "." => return Ok("stay in the current dir".to_string()),
+        p  if p == ".." => {
+            let mut arr: Vec<&str>;
+            match env::current_dir() {
+                Ok(PathBuf) => arr = PathBuf.display().to_string().split('/').collect(),
+                Err(e) => println!("error: {}", e)
+            };
+            // arr.pop();
+            let mut new_path = String::new();
+            for val in arr.iter().enumerate() {
+                
+            }
 
 
+            match env::set_current_dir(path) {
+                Ok(_) => println!("sucess"),
+                Err(e) => eprintln!("error {:?}", e) 
+            };
+            return Ok("go back to the previeus dir".to_string());
+        },
+        p if p == "~" || p == "/" || p == "" => println!("go to the first dir"),
+        _ => {
+            
+            println!("go to the first dir");
+        } 
+    };
+    
 
+    // check if has only one request
 
+    // check if path dont contians "/" => simple direction
+
+    // check other cases ./ ../ ~/ test/src/11 
+    
+    // if path.starts_with('/') && path.chars().count() != 1 {
+    //     return Ok(format!("bash: cd: {}: No such file or directory", path));
+    // } else if path.starts_with('/') && path.chars().count() == 1 {
+    //     path = path;
+    // }
+
+    // path = "".to_string();
+    // path = "/".to_string();
+    // path = "~".to_string();
+    // path = "..".to_string();
+    // path = ".".to_string();
+    // path = "-".to_string();
+    // path = "my home".to_string();
+    // path = "home/src".to_string();
+    // path = "file.txt".to_string();
+    // path = ".home".to_string(); // hiden file like folder
+    // path = "/root".to_string();
+    // path = "/home".to_string();
+    // path = "~/home".to_string();
+    // path = "./home".to_string();
+    // path = "../home".to_string();
+    // path = "../../home".to_string();
+
+    println!("path: {:?}", path);
+    match env::set_current_dir(path) {
+        Ok(_) => println!("sucess"),
+        Err(e) => println!("error {:?}", e) 
+    };
+    println!("{:?}", env::current_dir());
     Ok("OK".to_string())
 }
 

@@ -25,17 +25,13 @@ pub fn read_input() {
 
     loop {
         let input = read_line();
-        let result = inter.parse_line(&input);
-        let (cmd, args) = (&result[0], &result[1..]);
-        if cmd.trim().is_empty() {
+        let command = inter.parse_line(&input);
+        if command.name.trim().is_empty() {
             let _ = cli::print("$ ");
             continue;
         }
 
-        let _ = match run_command(cmd, args) {
-            Ok(out) => cli::print(&out),
-            Err(err) => cli::error(&err),
-        };
-        let _ = cli::print("\n$ ");
+        let exit_status = run_command(command);
+        let _ = cli::print("$ ");
     }
 }

@@ -6,14 +6,46 @@ pub enum Quote {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RedirectionKind {
+    // Input,
+    Output,
+    Error,
+    OutputError,
+}
+
+impl From<RedirectionKind> for &str {
+    fn from(x: RedirectionKind) -> Self {
+        use RedirectionKind::*;
+        match x {
+            Input => "<",
+            Output => ">",
+            Error => "2>",
+            OutputError => "&>",
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Operator {
     SemiColon,
     And,
     AndIf,
     Pipe,
     Or,
-    ///### Not Implemented Yet
-    Redirection(char),
+    Redirection(RedirectionKind),
+}
+
+impl From<Operator> for String {
+    fn from(op: Operator) -> Self {
+        match op {
+            Redirection(ch) => ch.into(),
+            SemiColon => ";",
+            And => "&",
+            Pipe => "|",
+            AndIf => "&&",
+            Or => "||",
+        }
+        .into()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -39,7 +71,8 @@ impl From<char> for Token {
             ';' => Operator(SemiColon),
             '&' => Operator(And),
             '|' => Operator(Pipe),
-            '<' | '>' => Operator(Redirection(ch)),
+            // '<' => Operator(Redirection(RedirectionKind::Input)),
+            '>' => Operator(Redirection(RedirectionKind::Output)),
             '\\' => BackSlash,
             '$' => DollarSign,
             ' ' | '\n' | '\t' => WhiteSpace(ch),
@@ -59,15 +92,7 @@ impl From<Token> for String {
                 Quote::Back => '`',
             },
             Bracket(ch) => ch,
-            Token::Operator(op) => match op {
-                Redirection(ch) => ch,
-                SemiColon => ';',
-                And => '&',
-                Pipe => '|',
-                AndIf => return "&&".into(),
-                Or => return "||".into(),
-            }
-            .into(),
+            Token::Operator(op) => return op.into(),
             BackSlash => '\\',
             DollarSign => '$',
             EOF => '\0',

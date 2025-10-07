@@ -1,87 +1,96 @@
 use std::env;
-use std::fs;
-use std::path::PathBuf;
-// use std::path::Path;
+use std::path::Path;
 
-// ----- change the working directory -----
-// https://pubs.opengroup.org/onlinepubs/9699919799/utilities/cd.html#tag_20_14
+// to do //
+
+// should handle error output by message error !!
+
 pub fn cd(args: &[String]) -> Result<String, String> {
     println!("arguments: {:?}", args);
-    let mut path = String::new();
-    match args.len() {
-        0 => path = "/root/home/Zone_01/0-shell/test".to_string(),
-        1 => path = args[0].to_string(),
-        _ => return Ok("bash: cd: too many arguments".to_string())
-    };
+    println!("befor: {:?}", env::current_dir());
 
-    let current_dir: Result<std::path::PathBuf, std::io::Error> = env::current_dir();
-    println!("{:?}", current_dir);
-    match &path {
-        p  if p == "-" => return Ok("go back to the previeus path".to_string()),
-        p  if p == "." => return Ok("stay in the current dir".to_string()),
-        p  if p == ".." => {
-            let mut arr: Vec<&str>;
-            match env::current_dir() {
-                Ok(PathBuf) => arr = PathBuf.display().to_string().split('/').collect(),
-                Err(e) => println!("error: {}", e)
-            };
-            // arr.pop();
-            let mut new_path = String::new();
-            for val in arr.iter().enumerate() {
-                
-            }
+    // let current_path = match env::current_dir() {
+    //     Ok(p) =>  p.display().to_string(),
+    //     Err(e) => format!("Error cannot get current dir: {}", e) 
+    // };
+    // let old_path = match env::var("OLDPWD") {
+    //     Ok(p) => p.to_string(),
+    //     Err(e) => format!("No previous directory found (OLDPWD not set): {}", e)
+    // };
 
+    let current_path = env::current_dir()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|e| format!("Error cannot get current dir: {}", e));
 
-            match env::set_current_dir(path) {
-                Ok(_) => println!("sucess"),
-                Err(e) => eprintln!("error {:?}", e) 
-            };
-            return Ok("go back to the previeus dir".to_string());
+    let old_path = env::var("OLDPWD").unwrap_or_else(|_| String::new());
+
+    let res: String = match args.len() {
+        0 => match env::var("HOME") {
+            Ok(p) => {
+                match env::set_current_dir(Path::new(&p)) {
+                    Ok(_) => {
+                        unsafe { env::set_var("OLDPWD", current_path) };
+                        "go to the main rout HOME".to_string()
+                    },
+                    Err(e) => format!("error: {}", e)
+                }
+            },
+            Err(e) => format!("error: {}", e)
         },
-        p if p == "~" || p == "/" || p == "" => println!("go to the first dir"),
-        _ => {
-            
-            println!("go to the first dir");
-        } 
+        1 => {
+            // let mut new_path: &str = "";
+            match args[0].clone() {
+                value  if value == "-" => match env::set_current_dir(Path::new(&old_path)) {
+                    Ok(_) => {
+                        unsafe { env::set_var("OLDPWD", current_path) };
+                        "switch to the previeus path".to_string()
+                    },
+                    Err(e) => format!("error: {}", e)
+                },
+                value if value == "~" => match env::var("HOME") {
+                    Ok(p) => {
+                        match env::set_current_dir(Path::new(&p)) {
+                            Ok(_) => {
+                                unsafe { env::set_var("OLDPWD", current_path) };
+                                "go to the main rout HOME".to_string()
+                            },
+                            Err(e) => format!("error: {}", e)
+                        }
+                    },
+                    Err(e) => format!("error: {}", e)
+                },
+
+                // ./../ or ../.././ case !!
+                _ => match env::set_current_dir(Path::new(&args[0])) {
+                    Ok(_) => {
+                        unsafe { env::set_var("OLDPWD", current_path) };
+                        "go to new path".to_string()
+                    },
+                    Err(e) => format!("error: {}", e)
+                }
+            }
+        },
+        _ => "0-shell: cd: too many arguments".to_string()
     };
-    
+    println!("after: {:?}", env::current_dir());
+    Ok(res)
 
-    // check if has only one request
-
-    // check if path dont contians "/" => simple direction
-
-    // check other cases ./ ../ ~/ test/src/11 
-    
-    // if path.starts_with('/') && path.chars().count() != 1 {
-    //     return Ok(format!("bash: cd: {}: No such file or directory", path));
-    // } else if path.starts_with('/') && path.chars().count() == 1 {
-    //     path = path;
-    // }
-
-    // path = "".to_string();
-    // path = "/".to_string();
-    // path = "~".to_string();
-    // path = "..".to_string();
-    // path = ".".to_string();
-    // path = "-".to_string();
-    // path = "my home".to_string();
-    // path = "home/src".to_string();
-    // path = "file.txt".to_string();
-    // path = ".home".to_string(); // hiden file like folder
-    // path = "/root".to_string();
-    // path = "/home".to_string();
-    // path = "~/home".to_string();
-    // path = "./home".to_string();
-    // path = "../home".to_string();
-    // path = "../../home".to_string();
-
-    println!("path: {:?}", path);
-    match env::set_current_dir(path) {
-        Ok(_) => println!("sucess"),
-        Err(e) => println!("error {:?}", e) 
-    };
-    println!("{:?}", env::current_dir());
-    Ok("OK".to_string())
+    // // path = "".to_string(); // handle 
+    // // path = "~".to_string(); // handle in parser +++
+    // // path = "/".to_string(); // simple path +++
+    // // path = "..".to_string(); // handle ////
+    // // path = ".".to_string(); // do nothing
+    // // path = "-".to_string(); // enverments variable ///////
+    // // path = "my home".to_string(); // simple path //
+    // // path = "home/src".to_string(); // simple path //
+    // // path = "file.txt".to_string(); 
+    // // path = ".home".to_string(); // hiden file like folder
+    // // path = "/root".to_string();
+    // // path = "/home".to_string();
+    // // path = "~/home".to_string(); // handle in parser +++
+    // // path = "./home".to_string();
+    // // path = "../home".to_string();
+    // // path = "../../home".to_string();
 }
 
 

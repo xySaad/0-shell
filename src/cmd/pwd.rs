@@ -1,11 +1,17 @@
-// use std::fs;
+use std::env;
 // cp utility according to https://pubs.opengroup.org/onlinepubs/9699919799/utilities/cp.html
 pub fn pwd(args: &[String]) -> Result<String, String> {
     println!("{:?}", args);
-
-
-
-    Ok("OK".to_string())
+    println!("{:?}", env::current_dir());
+    let current_path = match env::current_dir() {
+        Ok(p) =>  p.display().to_string(),
+        Err(e) => format!("Error cannot get current dir: {}", e) 
+    };
+    let old_path = match env::var("OLDPWD") {
+        Ok(p) => p.to_string(),
+        Err(e) => format!("No previous directory found (OLDPWD not set): {}", e)
+    };
+    Ok(format!("Current: {}, Old_pwd: {}", current_path, old_path))
 }
 
 // Basic Usage

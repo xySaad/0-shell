@@ -1,16 +1,31 @@
 use std::env;
+// use std::fs;
 // cp utility according to https://pubs.opengroup.org/onlinepubs/9699919799/utilities/cp.html
 pub fn pwd(args: &[String]) -> Result<String, String> {
-    println!("{:?}", args);
-    println!("{:?}", env::current_dir());
-    let current_path = match env::current_dir() {
-        Ok(p) =>  p.display().to_string(),
-        Err(e) => format!("Error cannot get current dir: {}", e) 
+    // println!("{:?}", args);
+    // println!("{:?}", env::current_dir());
+    if args.len() != 0 {
+        return  Ok(String::from("pwd: too many arguments"));
+    }
+    // let current_path = match env::current_dir() {
+    //     // Ok(p) =>  p.display().to_string(),
+    //     Ok(p) => {
+    //         match fs::canonicalize(&p) {
+    //             Ok(canonical) => canonical.display().to_string(),
+    //             Err(e) => format!("Error canonicalizing current dir: {}", e),
+    //         }
+    //     },
+    //     Err(e) => format!("Error cannot get current dir: {}", e) 
+    // };
+    let current_path = match env::var("PWD") {
+        Ok(p) => p.to_string(),
+        Err(e) => format!("No previous directory found (OLDPWD not set): {}", e)
     };
     let old_path = match env::var("OLDPWD") {
         Ok(p) => p.to_string(),
         Err(e) => format!("No previous directory found (OLDPWD not set): {}", e)
     };
+    // should handle path when removed /home/amellagu/.local/share/Trash/files/test !!
     Ok(format!("Current: {}, Old_pwd: {}", current_path, old_path))
 }
 

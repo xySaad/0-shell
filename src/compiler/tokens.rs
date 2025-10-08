@@ -7,7 +7,7 @@ pub enum Quote {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RedirectionKind {
-    // Input,
+    Input,
     Output,
     Error,
     OutputError,
@@ -71,7 +71,7 @@ impl From<char> for Token {
             ';' => Operator(SemiColon),
             '&' => Operator(And),
             '|' => Operator(Pipe),
-            // '<' => Operator(Redirection(RedirectionKind::Input)),
+            '<' => Operator(Redirection(RedirectionKind::Input)),
             '>' => Operator(Redirection(RedirectionKind::Output)),
             '\\' => BackSlash,
             '$' => DollarSign,

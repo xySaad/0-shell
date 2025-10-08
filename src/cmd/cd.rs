@@ -1,4 +1,4 @@
-use std::{env, fs};
+use std::env;
 use std::path::{Path, PathBuf};
 
 // to do //
@@ -9,100 +9,56 @@ pub fn cd(args: &[String]) -> Result<String, String> {
     println!("arguments: {:?}", args);
     println!("befor: {:?}", env::current_dir());
 
-    // let current_path = env::current_dir()
-    //     .map(|p| p.display().to_string())
-    //     .unwrap_or_else(|e| format!("Error cannot get current dir: {}", e));
+    if args.len() > 1 {
+        return Ok("0-shell: cd: too many arguments".to_string());
+    }
 
-    let old_path = env::var("OLDPWD").unwrap_or_else(|_| String::new());
-    let current_path = env::var("PWD").unwrap_or_else(|_| String::new());
+    // Get current logical path from $PWD or actual current_dir()
+    let current_pwd = env::var("PWD").unwrap_or_else(|_| {
+        env::current_dir()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|_| String::from("/"))
+    });
 
-    let res: String = match args.len() {
-        0 => match env::var("HOME") {
-            Ok(p) => {
-                match env::set_current_dir(Path::new(&p)) {
-                    Ok(_) => {
-                        unsafe { env::set_var("OLDPWD", current_path) };
-                        // Get canonical path after changing dir
-                        let new_pwd = env::current_dir()
-                            .unwrap_or_else(|_| Path::new(&p).to_path_buf())
-                            .display()
-                            .to_string();
-                        unsafe { env::set_var("PWD", new_pwd) };
-                        "go to the main rout HOME".to_string()
-                    }
-                    Err(e) => format!("error: {}", e),
-                }
-            }
-            Err(e) => format!("error: {}", e),
-        },
-        1 => {
-            // let mut new_path: &str = "";
-            match args[0].clone() {
-                // case cd - should print the path where go !!
-                value if value == "-" => match env::set_current_dir(Path::new(&old_path)) {
-                    Ok(_) => {
-                        unsafe { env::set_var("OLDPWD", current_path) };
-                        let new_pwd = env::current_dir()
-                            .unwrap_or_else(|_| Path::new(&old_path).to_path_buf())
-                            .display()
-                            .to_string();
-                        unsafe { env::set_var("PWD", new_pwd) };
-                        "switch to the previeus path".to_string()
-                    }
-                    Err(e) => format!("error: {}", e),
-                },
-                // value if value == "~" => match env::var("HOME") {
-                //     Ok(p) => {
-                //         match env::set_current_dir(Path::new(&p)) {
-                //             Ok(_) => {
-                //                 unsafe { env::set_var("OLDPWD", current_path) };
-                //                 unsafe { env::set_var("PWD", p) };
-                //                 "go to the main rout HOME".to_string()
-                //             },
-                //             Err(e) => format!("error: {}", e)
-                //         }
-                //     },
-                //     Err(e) => format!("error: {}", e)
-                // },
-
-                // ./../ or ../.././ case !!
-                _ => {
-                    let base = env::var("PWD").unwrap_or_else(|_| current_path.clone());
-                    let new_path = Path::new(&base).join(Path::new(&args[0]));
-                    match env::set_current_dir(
-                        Path::new(&new_path),
-                    ) {
-                        Ok(_) => {
-                            unsafe { env::set_var("OLDPWD", current_path) };
-                            let new_pwd = if Path::new(&args[0]).is_absolute() && !args[0].contains("..") {
-                                args[0].clone()
-                            } else {
-                                // normalize relative paths, but don't resolve symlinks
-                                Path::new(&base)
-                                    .join(&args[0])
-                                    .components()
-                                    .collect::<PathBuf>()
-                                    .display()
-                                    .to_string()
-                            };
-                            // if new_pwd.contains("..") || new_pwd.contains(".") {
-                            //     new_pwd = std::fs::canonicalize(current_path)
-                            //         .unwrap_or_else(|_| new_path.clone())
-                            //         .display()
-                            //         .to_string();
-                            // }
-                            unsafe { env::set_var("PWD", new_pwd) };
-                            "go to new path".to_string()
-                        }
-                        Err(e) => format!("error: {}", e),
-                    }
-                }
-            }
-        }
-        _ => "0-shell: cd: too many arguments".to_string(),
+    let target = if args.is_empty() || args[0] == "--" {
+        "~".to_string()
+    } else {
+        args[0].clone()
     };
+
+    match target.as_str() {
+        "~" => {
+            let home = env::var("HOME").unwrap_or_else(|_| String::from("/root"));
+            change_dir(&home, &current_pwd)?;
+        }
+
+        "-" => {
+            let oldpwd = env::var("OLDPWD").unwrap_or_else(|_| current_pwd.clone());
+            change_dir(&oldpwd, &current_pwd)?;
+            println!("{}", oldpwd);
+        }
+
+        ".." => {
+            let mut logical = PathBuf::from(&current_pwd);
+            logical.pop(); // remove last component logically (don’t resolve symlink)
+            let new_path = logical.display().to_string();
+            change_dir(&new_path, &current_pwd)?;
+        }
+
+        // ./../ or ../.././ case !!
+        other => {
+            let pwd = Path::new(&current_pwd);
+            let abs_path = if Path::new(other).is_absolute() {
+                PathBuf::from(other)
+            } else {
+                pwd.join(other)
+            };
+            change_dir(abs_path.to_str().unwrap(), &current_pwd)?;
+        }
+    };
+
     println!("after: {:?}", env::current_dir());
-    Ok(res)
+    Ok("OK".to_string())
 
     // // path = "".to_string(); // handle
     // // path = "~".to_string(); // handle in parser +++
@@ -120,6 +76,44 @@ pub fn cd(args: &[String]) -> Result<String, String> {
     // // path = "./home".to_string();
     // // path = "../home".to_string();
     // // path = "../../home".to_string();
+}
+
+/// Helper that changes dir and updates PWD/OLDPWD logically (no symlink resolution)
+fn change_dir(target: &str, oldpwd: &str) -> Result<(), String> {
+    let path = Path::new(target);
+    if !path.exists() {
+        return Err(format!("cd: {}: No such directory", target));
+    }
+
+    if let Err(e) = env::set_current_dir(path) {
+        return Err(format!("cd: {}: {}", target, e));
+    }
+
+    unsafe { env::set_var("OLDPWD", oldpwd) };
+    unsafe { env::set_var("PWD", normalize_path(&PathBuf::from(target))) };
+    Ok(())
+}
+
+fn normalize_path(path: &Path) -> String {
+    let mut parts: Vec<&str> = vec![];
+
+    for comp in path.components() {
+        match comp.as_os_str().to_str() {
+            Some(".") => continue,
+            Some("..") => {
+                parts.pop();
+            }
+            Some(s) => parts.push(s),
+            None => continue,
+        }
+    }
+
+    // Always start with a single leading slash if it's absolute
+    if path.is_absolute() {
+        format!("/{}", parts.join("/"))
+    } else {
+        parts.join("/")
+    }
 }
 
 // Basic Navigation

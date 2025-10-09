@@ -232,15 +232,13 @@ impl<T: Fn() -> String> Interpreter<T> {
         if !current.is_empty() {
             command_sequence.push(current.to_string());
         }
-        
-        match command_sequence.len() {
-            n if n > 0 => {
-                command.name = command_sequence[0].clone();
-            }
-            n if n > 1 => {
-                command.args = command_sequence[1..].to_vec();
-            }
-            _ => (),
+
+        if command_sequence.len() > 0 {
+            command.name = command_sequence[0].clone();
+        }
+
+        if command_sequence.len() > 1 {
+            command.args = command_sequence[1..].to_vec();
         }
 
         return command;

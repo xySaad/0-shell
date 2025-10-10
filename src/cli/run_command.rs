@@ -24,6 +24,7 @@ pub fn run_command(cmd: Command) -> i32 {
         let exit_status = match name.as_str() {
             "echo" => echo(args),
             "cp" => cp::cp(args),
+            "ls"=> ls::ls(args),
             "exit" => exit(0),
             _ => {
                 eprintln!("Command '{}' not found", name);

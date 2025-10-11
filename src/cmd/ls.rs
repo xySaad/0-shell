@@ -1,6 +1,8 @@
 use std::path::Path;
 use std::io;
-use std::fs::{ self, DirEntry };
+use std::fs::{ self, DirEntry, Metadata, Permissions };
+use std::os::unix::fs::{FileTypeExt, MetadataExt};
+use users::{ get_user_by_uid, get_group_by_gid };
 
 #[derive(Debug, Eq, Clone, PartialEq)]
 pub struct LsConfig {
@@ -83,6 +85,8 @@ pub fn ls(args: &Vec<String>) -> i32 {
 
 // LET'S create a fn that handles the process of reading one target(file/ directory and returns the target with its DirEntries as a Vect)
 // -a hnaa is handled as well
+// the error lackes the target_name
+// to be fixed later
 pub fn read_target_path(
     ls_config: &LsConfig
 ) -> impl Iterator<Item = Result<(String, Vec<DirEntry>), io::Error>> {
@@ -132,30 +136,52 @@ enum FileTypeEnum {
 
 #[derive(Debug)]
 pub struct Entry {
-    permissions: String,
-    file_mode: u32,
-    number_of_links: u32,
+    permissions: Permissions,
+    number_of_links: u64,
     onwer_name: String,
     group_name: String,
-    size: u32,
-    date: u64,
+    size: u64,
+    last_modified: i64,
     entry_name: String,
     file_type: FileTypeEnum,
 }
 
 impl Entry {
-    pub fn new(dir: &DirEntry) -> Self {}
-
+    pub fn new(dir: &DirEntry, metadata: &Metadata) -> Self {
+        Self {
+            permissions: metadata.permissions(),
+            file_type: Self::get_file_type(metadata),
+            size: metadata.size(),
+            number_of_links: metadata.nlink(),
+            last_modified: metadata.mtime(),
+            entry_name: dir.file_name().to_string_lossy().to_string(),
+            onwer_name: Self::get_user_name(metadata.uid()),
+            group_name: Self::get_group_name(metadata.gid()),
+        }
+    }
     fn get_file_type(metadata: &Metadata) -> FileTypeEnum {
         match true {
-            _ if metadata.file_type().is_file => FileTypeEnum::Regular,
-            _ if metadata.file_type().is_dir => FileTypeEnum::Directory,
-            _ if metadata.file_type().is_symlink => FileTypeEnum::Symlink,
-            _ if metadata.file_type().is_block_device => FileTypeEnum::BlockDevice,
-            _ if metadata.file_type().is_char_device => FileTypeEnum::CharDevice,
-            _ if metadata.file_type().is_fifo => FileTypeEnum::NamedPipe,
-            _ if metadata.file_type().is_socket => FileTypeEnum::Socket,
+            _ if metadata.file_type().is_file() => FileTypeEnum::Regular,
+            _ if metadata.file_type().is_dir() => FileTypeEnum::Directory,
+            _ if metadata.file_type().is_symlink() => FileTypeEnum::Symlink,
+            _ if metadata.file_type().is_block_device() => FileTypeEnum::BlockDevice,
+            _ if metadata.file_type().is_char_device() => FileTypeEnum::CharDevice,
+            _ if metadata.file_type().is_fifo() => FileTypeEnum::NamedPipe,
+            _ if metadata.file_type().is_socket() => FileTypeEnum::Socket,
             _ => FileTypeEnum::Unknown,
+        }
+    }
+    fn get_user_name(u_id: u32) -> String {
+        match get_user_by_uid(u_id) {
+            Some(user) => user.name().to_string_lossy().to_string(),
+            None => u_id.to_string(),
+        }
+    }
+
+    fn get_group_name(g_id: u32) -> String {
+        match get_group_by_gid(g_id) {
+            Some(group) => group.name().to_string_lossy().to_string(),
+            None => g_id.to_string(),
         }
     }
 }
@@ -170,4 +196,4 @@ pub fn print_long_format(dir_entry: &DirEntry) {
 
 // }
 
-pub fn append_file_type_indicator() {}
+// pub fn append_file_type_indicator() {}

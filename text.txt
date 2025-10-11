@@ -1,0 +1,1 @@
+Ok((".", [DirEntry("./.gitignore"), DirEntry("./.git"), DirEntry("./Cargo.lock"), DirEntry("./target"), DirEntry("./src"), DirEntry("./Cargo.toml"), DirEntry("./text.txt")]))

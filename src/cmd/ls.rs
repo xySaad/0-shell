@@ -1,8 +1,11 @@
 use std::path::Path;
 use std::io;
 use std::fs::{ self, DirEntry, Metadata, Permissions };
-use std::os::unix::fs::{FileTypeExt, MetadataExt};
+use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
 use users::{ get_user_by_uid, get_group_by_gid };
+use chrono::{ NaiveDateTime, Local, TimeZone };
+use colored::{ Colorize, ColoredString, Color };
+use std::Cell;
 
 #[derive(Debug, Eq, Clone, PartialEq)]
 pub struct LsConfig {
@@ -71,7 +74,15 @@ pub fn ls(args: &Vec<String>) -> i32 {
         match target_path {
             Ok((target_name, entries_vec)) => {
                 for ent in &entries_vec {
-                    print_long_format(ent);
+                    let new_entry = Entry::new(ent);
+                    match new_entry {
+                        Ok(valid_entry) => {
+                            valid_entry.long_format();
+                        }
+                        Err(e) => {
+                            eprintln!("{:?}", e);
+                        }
+                    }
                 }
             }
             Err(e) => {
@@ -96,7 +107,7 @@ pub fn read_target_path(
                 let dir_entries: Result<Vec<DirEntry>, io::Error> = entries.collect();
 
                 let vect_entries = match dir_entries {
-                    Ok(vec) => if !ls_config.a_flag_set {
+                    Ok(vec) => if ls_config.a_flag_set {
                         vec
                     } else {
                         vec.into_iter()
@@ -116,11 +127,6 @@ pub fn read_target_path(
         };
     })
 }
-
-// here just for one entry
-// "%s %u %s %s %u %s %s\n", <file mode>, <number of links>,
-//  <owner name>, <group name>, <number of bytes in the file>,
-//  <date and time>, <pathname>
 
 #[derive(Debug)]
 enum FileTypeEnum {
@@ -142,23 +148,46 @@ pub struct Entry {
     group_name: String,
     size: u64,
     last_modified: i64,
-    entry_name: String,
+    entry_name: ColoredString,
     file_type: FileTypeEnum,
+    is_executable: Cell<bool>,
 }
 
 impl Entry {
-    pub fn new(dir: &DirEntry, metadata: &Metadata) -> Self {
-        Self {
+    pub fn new(dir: &DirEntry) -> Result<Self, io::Error> {
+        let mut metadata = match dir.metadata() {
+            Ok(some_metadata) => some_metadata,
+            Err(e) => {
+                return Err(e);
+            }
+        };
+        Ok(Self {
             permissions: metadata.permissions(),
-            file_type: Self::get_file_type(metadata),
+            file_type: Self::get_file_type(&metadata),
             size: metadata.size(),
             number_of_links: metadata.nlink(),
             last_modified: metadata.mtime(),
             entry_name: dir.file_name().to_string_lossy().to_string(),
             onwer_name: Self::get_user_name(metadata.uid()),
             group_name: Self::get_group_name(metadata.gid()),
-        }
+            is_executable: false,
+        })
     }
+
+    fn color_entry_name(metadata: &Metadata, dir: &DirEntry) {
+        let entry_type = Self::get_file_type(metadata);
+        let color: Color = match entry_type {
+            FileTypeEnum::Directory => Color::Blue,
+            FileTypeEnum::BlockDevice => Color::Blue,
+            FileTypeEnum::CharDevice => Color::Blue,
+            FileTypeEnum::Symlink => Color::Blue,
+            FileTypeEnum::NamedPipe => Color::Blue,
+            FileTypeEnum::Socket => Color::Blue,
+            FileTypeEnum::Regular => Color::Blue,
+            FileTypeEnum::Unknown => Color::Blue,
+        };
+    }
+
     fn get_file_type(metadata: &Metadata) -> FileTypeEnum {
         match true {
             _ if metadata.file_type().is_file() => FileTypeEnum::Regular,
@@ -184,16 +213,78 @@ impl Entry {
             None => g_id.to_string(),
         }
     }
-}
 
-pub fn print_long_format(dir_entry: &DirEntry) {
-    if let Ok(metadata) = dir_entry.metadata() {
-        println!("metadata permissions => {:?}", metadata.file_type())
+    fn format_date(&self) -> String {
+        let naive_datetime = NaiveDateTime::from_timestamp_opt(self.last_modified, 0).expect(
+            "Invalid timestamp"
+        );
+        let datetime = Local.from_local_datetime(&naive_datetime).unwrap();
+        datetime.format("%b %e %H:%M").to_string()
+    }
+
+    fn format_file_mode(&self) -> String {
+        let entry_type = match self.file_type {
+            FileTypeEnum::Directory => "d",
+            FileTypeEnum::BlockDevice => "b",
+            FileTypeEnum::CharDevice => "c",
+            FileTypeEnum::Symlink => "l",
+            FileTypeEnum::NamedPipe => "p",
+            FileTypeEnum::Socket => "s",
+            FileTypeEnum::Regular => "-",
+            FileTypeEnum::Unknown => "?",
+        };
+
+        let mode = self.permissions.mode();
+        let permissions = [
+            // owner permissions
+            if (mode & 0o400) != 0 {
+                'r'
+            } else {
+                '-'
+            },
+            if (mode & 0o200) != 0 { 'w' } else { '-' },
+            if (mode & 0o100) != 0 { 'x' } else { '-' },
+            // group ones
+            if (mode & 0o040) != 0 {
+                'r'
+            } else {
+                '-'
+            },
+            if (mode & 0o020) != 0 { 'w' } else { '-' },
+            if (mode & 0o010) != 0 { 'x' } else { '-' },
+            // others ones
+            if (mode & 0o004) != 0 {
+                'r'
+            } else {
+                '-'
+            },
+            if (mode & 0o002) != 0 { 'w' } else { '-' },
+            if (mode & 0o001) != 0 { 'x' } else { '-' },
+        ];
+        let permissions: String = permissions.iter().collect();
+        entry_type.to_string() + &permissions
+    }
+
+    // here just for one entry
+    // "%s %u %s %s %u %s %s\n", <file mode>, <number of links>,
+    //  <owner name>, <group name>, <number of bytes in the file>,
+    //  <date and time>, <pathname>
+    pub fn long_format(&self) -> String {
+        format!(
+            "{} {} {} {} {} {} {}",
+            self.format_file_mode(),
+            self.number_of_links,
+            self.onwer_name,
+            self.group_name,
+            self.size,
+            self.format_date(),
+            self.entry_name
+        )
+    }
+    // they need to be aligned ;)
+    pub fn regular_format(&self) {
+        eprintln!("{}", self.entry_name)
     }
 }
-
-// pub fn get_and_format_permissions(dir_entry: &DirEntry)->  {
-
-// }
 
 // pub fn append_file_type_indicator() {}

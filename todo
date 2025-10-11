@@ -1,0 +1,7 @@
+switch from printing to returning a string !! we need another iterator for printing ( to handle the case of the errors come first and then the output)
+handle also the formatting ;)
+handle the . and .. missing when -a 
+handle the -l when having a symbolic link ;) 
+-a is set we must sort the entries 
+coloring is a must  
+-F

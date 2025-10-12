@@ -9,6 +9,11 @@ pub fn mkdir(args: &[String]) -> Result<String, String> {
     let mut errors: Vec<String> = Vec::new();
 
     for dir in args {
+        if dir.len() > 255 {
+            errors.push(format!("mkdir: cannot create directory '{}': File name too long", dir));
+            continue;
+        }
+        
         match fs::create_dir(dir) {
             Ok(_) => {}
             Err(e) => {

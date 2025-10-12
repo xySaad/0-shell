@@ -5,7 +5,7 @@ use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
 use users::{ get_user_by_uid, get_group_by_gid };
 use chrono::{ NaiveDateTime, Local, TimeZone };
 use colored::{ Colorize, ColoredString, Color };
-use std::Cell;
+use std::cell::RefCell;
 
 #[derive(Debug, Eq, Clone, PartialEq)]
 pub struct LsConfig {
@@ -77,7 +77,7 @@ pub fn ls(args: &Vec<String>) -> i32 {
                     let new_entry = Entry::new(ent);
                     match new_entry {
                         Ok(valid_entry) => {
-                            valid_entry.long_format();
+                            eprintln!("{}",valid_entry.long_format());
                         }
                         Err(e) => {
                             eprintln!("{:?}", e);
@@ -128,7 +128,7 @@ pub fn read_target_path(
     })
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum FileTypeEnum {
     Regular,
     Directory,
@@ -148,9 +148,9 @@ pub struct Entry {
     group_name: String,
     size: u64,
     last_modified: i64,
-    entry_name: ColoredString,
+    entry_name: String,
     file_type: FileTypeEnum,
-    is_executable: Cell<bool>,
+    is_executable: RefCell<bool>,
 }
 
 impl Entry {
@@ -170,21 +170,28 @@ impl Entry {
             entry_name: dir.file_name().to_string_lossy().to_string(),
             onwer_name: Self::get_user_name(metadata.uid()),
             group_name: Self::get_group_name(metadata.gid()),
-            is_executable: false,
+            is_executable: RefCell::new(false),
         })
     }
 
-    fn color_entry_name(metadata: &Metadata, dir: &DirEntry) {
-        let entry_type = Self::get_file_type(metadata);
-        let color: Color = match entry_type {
-            FileTypeEnum::Directory => Color::Blue,
-            FileTypeEnum::BlockDevice => Color::Blue,
-            FileTypeEnum::CharDevice => Color::Blue,
-            FileTypeEnum::Symlink => Color::Blue,
-            FileTypeEnum::NamedPipe => Color::Blue,
-            FileTypeEnum::Socket => Color::Blue,
-            FileTypeEnum::Regular => Color::Blue,
-            FileTypeEnum::Unknown => Color::Blue,
+    fn color_entry_name(&self) {
+        let entry_type = &self.file_type;
+        let is_executable = self.is_executable.borrow();
+        let color: Color = match true {
+            _ if *entry_type == FileTypeEnum::Directory => Color::Blue,
+            _ if
+                *entry_type == FileTypeEnum::BlockDevice ||
+                *entry_type == FileTypeEnum::CharDevice ||
+                *entry_type == FileTypeEnum::NamedPipe
+            => Color::Yellow,
+            _ if *entry_type == FileTypeEnum::Symlink => Color::Cyan,
+           
+            _ if *entry_type ==  FileTypeEnum::Socket => Color::White,
+            _ if *entry_type == FileTypeEnum::Regular && *is_executable == true => Color::Green,
+            // _ if entry_type == FileTypeEnum::Regular && is_image(self.enyr) == true => Color::Green,
+            // _ if entry_type == FileTypeEnum::Regular && self.is_executable.borrow() == true => Color::Green,
+            _  => Color::BrightBlack,
+            
         };
     }
 
@@ -262,6 +269,11 @@ impl Entry {
             if (mode & 0o001) != 0 { 'x' } else { '-' },
         ];
         let permissions: String = permissions.iter().collect();
+        if permissions.contains("x") {
+            let mut executable = self.is_executable.borrow_mut();
+            *executable = true;
+        }
+
         entry_type.to_string() + &permissions
     }
 
@@ -271,7 +283,7 @@ impl Entry {
     //  <date and time>, <pathname>
     pub fn long_format(&self) -> String {
         format!(
-            "{} {} {} {} {} {} {}",
+            "{} {} {} {} {:>5} {} {}",
             self.format_file_mode(),
             self.number_of_links,
             self.onwer_name,
@@ -282,9 +294,12 @@ impl Entry {
         )
     }
     // they need to be aligned ;)
-    pub fn regular_format(&self) {
-        eprintln!("{}", self.entry_name)
+    pub fn regular_format(&self) -> String {
+        self.entry_name.clone()
     }
 }
 
 // pub fn append_file_type_indicator() {}
+
+
+

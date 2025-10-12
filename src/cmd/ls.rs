@@ -175,11 +175,12 @@ pub struct Entry {
     file_type: FileTypeEnum,
     is_executable: RefCell<bool>,
     colored_string: RefCell<ColoredString>,
+    path: PathBuf,
 }
 
 impl Entry {
-    pub fn new(dir: &PathBuf) -> Result<Self, io::Error> {
-        let metadata = match dir.metadata() {
+    pub fn new(path: &PathBuf) -> Result<Self, io::Error> {
+        let metadata = match fs::symlink_metadata(path) {
             Ok(some_metadata) => some_metadata,
             Err(e) => {
                 return Err(e);
@@ -192,11 +193,12 @@ impl Entry {
             size: metadata.size(),
             number_of_links: metadata.nlink(),
             last_modified: metadata.mtime(),
-            entry_name: Self::get_entry_name(dir),
+            entry_name: Self::get_entry_name(path),
             onwer_name: Self::get_user_name(metadata.uid()),
             group_name: Self::get_group_name(metadata.gid()),
             is_executable: RefCell::new(false),
-            colored_string: RefCell::new(Self::get_entry_name(dir).white()),
+            colored_string: RefCell::new(Self::get_entry_name(path).white()),
+            path: path.clone(),
         })
     }
 
@@ -215,21 +217,19 @@ impl Entry {
     fn color_entry_name(&self) {
         let entry_type = &self.file_type;
         let is_executable = self.is_executable.borrow();
-        println!("entry_type: {:?}", entry_type);
         match true {
             _ if *entry_type == FileTypeEnum::Directory => {
                 *self.colored_string.borrow_mut() = self.entry_name.clone().blue().bold();
-            },
+            }
             _ if
                 *entry_type == FileTypeEnum::BlockDevice ||
                 *entry_type == FileTypeEnum::CharDevice ||
                 *entry_type == FileTypeEnum::NamedPipe
             => {
                 *self.colored_string.borrow_mut() = self.entry_name.clone().bold().yellow();
-            },
+            }
             _ if *entry_type == FileTypeEnum::Symlink => {
-                println!("cyan!!");
-                *self.colored_string.borrow_mut() = self.entry_name.cyan();
+                *self.colored_string.borrow_mut() = self.entry_name.cyan().bold();
             }
 
             _ if *entry_type == FileTypeEnum::Socket => {
@@ -239,7 +239,7 @@ impl Entry {
                 *self.colored_string.borrow_mut() = self.entry_name.clone().bold().green();
             }
             _ => {
-                *self.colored_string.borrow_mut() = self.entry_name.clone().bold().white();
+                *self.colored_string.borrow_mut() = self.entry_name.clone().bright_white();
             }
         };
     }
@@ -329,9 +329,9 @@ impl Entry {
     // "%s %u %s %s %u %s %s\n", <file mode>, <number of links>,
     //  <owner name>, <group name>, <number of bytes in the file>,
     //  <date and time>, <pathname>
-    pub fn long_format(&mut self) -> String {
+    pub fn long_format(&self) -> String {
         self.color_entry_name();
-        format!(
+        let formatted_string = format!(
             "{} {:>5} {} {} {:>5} {} {}",
             self.format_file_mode(),
             self.number_of_links,
@@ -340,13 +340,24 @@ impl Entry {
             self.size,
             self.format_date(),
             *self.colored_string.borrow()
-        )
+        );
+        if self.file_type == FileTypeEnum::Symlink {
+            let pointed_to = if let Ok(pointed_to) = self.path.read_link() {
+                Self::get_entry_name(&pointed_to)
+            } else {
+                "".to_string()
+            };
+            return formatted_string + " -> " + &pointed_to;
+        }
+        formatted_string
     }
     // they need to be aligned ;)
     pub fn regular_format(&self) -> String {
         self.color_entry_name();
         format!("{}", *self.colored_string.borrow())
     }
-}
 
-// pub fn append_file_type_indicator() {}
+    pub fn append_file_type_indicator(&self) {
+        if 
+    }
+}

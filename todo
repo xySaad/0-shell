@@ -5,3 +5,4 @@ handle the -l when having a symbolic link ;)
 -a is set we must sort the entries 
 coloring is a must  
 -F
+handle the (commands put on file instead of a directory)

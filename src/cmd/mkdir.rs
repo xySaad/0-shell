@@ -6,21 +6,29 @@ pub fn mkdir(args: &[String]) -> Result<String, String> {
         return Err(String::from("mkdir: missing operand"));
     }
 
+    let mut errors: Vec<String> = Vec::new();
+
     for dir in args {
-        if let Err(e) = fs::create_dir(dir) {
-            // I added this to avoid the printing of the whole error
-            let msg = match e.kind() {
-            ErrorKind::AlreadyExists => "File exists",
-            ErrorKind::PermissionDenied => "Permission denied",
-            ErrorKind::NotFound => "No such file or directory",
-            ErrorKind::WouldBlock => "Operation would block",
-            ErrorKind::Interrupted => "Operation interrupted",
-            ErrorKind::Other => "Unknown error",
-            _ => "An error occurred",
-        };
-            // here I returned the error with just the message
-            return  Err(format!("mkdir: cannot create directory '{}': {}", dir, msg));
+        match fs::create_dir(dir) {
+            Ok(_) => {}
+            Err(e) => {
+                let msg = match e.kind() {
+                    ErrorKind::AlreadyExists => "File exists",
+                    ErrorKind::PermissionDenied => "Permission denied",
+                    ErrorKind::NotFound => "No such file or directory",
+                    ErrorKind::WouldBlock => "Operation would block",
+                    ErrorKind::Interrupted => "Operation interrupted",
+                    ErrorKind::Other => "Unknown error",
+                    _ => "An error occurred",
+                };
+                errors.push(format!("mkdir: cannot create directory '{}': {}", dir, msg));
+            }
         }
+    }
+
+    if !errors.is_empty() {
+        let err = errors.join("\n");
+        return Err(err);
     }
     Ok(String::new())
 }

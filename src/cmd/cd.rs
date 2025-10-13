@@ -2,8 +2,8 @@ use std::env;
 use std::path::{Path, PathBuf};
 
 // to do //
-
 // should handle error output by message error !!
+// should handle "////"
 
 pub fn cd(args: &[String]) -> Result<String, String> {
     println!("arguments: {:?}", args);
@@ -13,7 +13,6 @@ pub fn cd(args: &[String]) -> Result<String, String> {
         return Ok("0-shell: cd: too many arguments".to_string());
     }
 
-    // Get current logical path from $PWD or actual current_dir()
     let current_pwd = env::var("PWD").unwrap_or_else(|_| {
         env::current_dir()
             .map(|p| p.display().to_string())
@@ -28,7 +27,7 @@ pub fn cd(args: &[String]) -> Result<String, String> {
 
     match target.as_str() {
         "~" => {
-            let home = env::var("HOME").unwrap_or_else(|_| String::from("/root"));
+            let home = env::var("HOME").unwrap_or_else(|_| String::from("/"));
             change_dir(&home, &current_pwd)?;
         }
 
@@ -77,12 +76,14 @@ pub fn cd(args: &[String]) -> Result<String, String> {
     // // path = "../../home".to_string();
 }
 
-/// Helper that changes dir and updates PWD/OLDPWD logically (no symlink resolution)
 fn change_dir(target: &str, oldpwd: &str) -> Result<(), String> {
     let path = Path::new(target);
     if !path.exists() {
         return Err(format!("cd: {}: No such directory", target));
     }
+    //  else {
+    //     Path::new("/home/amellagu/.local/share/Trash/files/")
+    // }
 
     if let Err(e) = env::set_current_dir(path) {
         return Err(format!("cd: {}: {}", target, e));
@@ -107,10 +108,22 @@ fn normalize_path(path: &Path) -> String {
         }
     }
 
-    // Always start with a single leading slash if it's absolute
-    if path.is_absolute() {
+    let mut res = if path.is_absolute() {
         format!("/{}", parts.join("/"))
     } else {
         parts.join("/")
+    };
+
+    let mut start = 0;
+    for (i, c) in res.clone().chars().enumerate() {
+        if c == '/' {
+            start = i;
+            continue;
+        }
+        break
     }
+    if start > 1 {
+        res = res[start..].to_string();
+    }
+    res
 }

@@ -78,7 +78,7 @@ pub fn ls(args: &Vec<String>) -> i32 {
                     //println!("entry {:?}", ent);
                     let new_entry = Entry::new(ent);
                     match new_entry {
-                        Ok(mut valid_entry) => {
+                        Ok(valid_entry) => {
                             if ls_config.l_falg_set {
                                 eprintln!("{}", valid_entry.long_format());
                             } else {
@@ -174,7 +174,7 @@ pub struct Entry {
     entry_name: String,
     file_type: FileTypeEnum,
     is_executable: RefCell<bool>,
-    colored_string: RefCell<ColoredString>,
+    colored_entry_name: RefCell<String>,
     path: PathBuf,
 }
 
@@ -197,7 +197,7 @@ impl Entry {
             onwer_name: Self::get_user_name(metadata.uid()),
             group_name: Self::get_group_name(metadata.gid()),
             is_executable: RefCell::new(false),
-            colored_string: RefCell::new(Self::get_entry_name(path).white()),
+            colored_entry_name: RefCell::new(format!("{}", Self::get_entry_name(path).white())),
             path: path.clone(),
         })
     }
@@ -219,27 +219,45 @@ impl Entry {
         let is_executable = self.is_executable.borrow();
         match true {
             _ if *entry_type == FileTypeEnum::Directory => {
-                *self.colored_string.borrow_mut() = self.entry_name.clone().blue().bold();
+                *self.colored_entry_name.borrow_mut() = format!(
+                    "{}",
+                    self.entry_name.clone().blue().bold()
+                );
             }
             _ if
                 *entry_type == FileTypeEnum::BlockDevice ||
                 *entry_type == FileTypeEnum::CharDevice ||
                 *entry_type == FileTypeEnum::NamedPipe
             => {
-                *self.colored_string.borrow_mut() = self.entry_name.clone().bold().yellow();
+                *self.colored_entry_name.borrow_mut() = format!(
+                    "{}",
+                    self.entry_name.clone().bold().yellow()
+                );
             }
             _ if *entry_type == FileTypeEnum::Symlink => {
-                *self.colored_string.borrow_mut() = self.entry_name.cyan().bold();
+                *self.colored_entry_name.borrow_mut() = format!(
+                    "{}",
+                    self.entry_name.cyan().bold()
+                );
             }
 
             _ if *entry_type == FileTypeEnum::Socket => {
-                *self.colored_string.borrow_mut() = self.entry_name.clone().bold().white();
+                *self.colored_entry_name.borrow_mut() = format!(
+                    "{}",
+                    self.entry_name.clone().bold().white()
+                );
             }
             _ if *entry_type == FileTypeEnum::Directory && *is_executable == true => {
-                *self.colored_string.borrow_mut() = self.entry_name.clone().bold().green();
+                *self.colored_entry_name.borrow_mut() = format!(
+                    "{}",
+                    self.entry_name.clone().bold().green()
+                );
             }
             _ => {
-                *self.colored_string.borrow_mut() = self.entry_name.clone().bright_white();
+                *self.colored_entry_name.borrow_mut() = format!(
+                    "{}",
+                    self.entry_name.clone().bright_white()
+                );
             }
         };
     }
@@ -339,7 +357,7 @@ impl Entry {
             self.group_name,
             self.size,
             self.format_date(),
-            *self.colored_string.borrow()
+            *self.colored_entry_name.borrow()
         );
         if self.file_type == FileTypeEnum::Symlink {
             let pointed_to = if let Ok(pointed_to) = self.path.read_link() {
@@ -354,10 +372,31 @@ impl Entry {
     // they need to be aligned ;)
     pub fn regular_format(&self) -> String {
         self.color_entry_name();
-        format!("{}", *self.colored_string.borrow())
+        self.append_file_type_indicator();
+        format!("{}", *self.colored_entry_name.borrow())
     }
 
+    /*Do not follow symbolic links named as operands unless the -H or -L options are specified.
+    Write a slash ( '/' ) immediately after each pathname that is a directory,
+    an asterisk ( '*' ) after each that is executable,
+    a vertical bar ( '|' ) after each that is a FIFO,
+    and an at sign ( '@' ) after each that is a symbolic link.
+    For other file types, other symbols may be written.*/
+
     pub fn append_file_type_indicator(&self) {
-        if 
+        if self.file_type == FileTypeEnum::Directory {
+            self.colored_entry_name.borrow_mut().push_str("/");
+        } else if *self.is_executable.borrow() {
+            self.colored_entry_name.borrow_mut().push_str("*");
+        } else if self.file_type == FileTypeEnum::Symlink {
+            self.colored_entry_name.borrow_mut().push_str("@");
+        } else if self.file_type == FileTypeEnum::NamedPipe {
+            self.colored_entry_name.borrow_mut().push_str("|");
+        }
     }
 }
+
+// we need to colorize the output if and only if istty()  ;)
+// we need to edit the impl iterator again and see if we can return 2 iterators (one of the valid targets and the ther for errors)
+// the print also needs more way of handling (we need to find the max of each field and then format )
+

@@ -10,16 +10,20 @@ pub fn mkdir(args: &[String]) -> Result<String, String> {
 
     for dir in args {
         if dir.len() > 255 {
-            errors.push(format!("mkdir: cannot create directory '{}': File name too long", dir));
+            errors.push(format!(
+                "mkdir: cannot create directory '{}': File name too long",
+                dir
+            ));
             continue;
         }
-        
+
         match fs::create_dir(dir) {
             Ok(_) => {}
             Err(e) => {
                 let msg = match e.kind() {
                     ErrorKind::AlreadyExists => "File exists",
                     ErrorKind::PermissionDenied => "Permission denied",
+                    ErrorKind::NotADirectory => "Not a directory",
                     ErrorKind::NotFound => "No such file or directory",
                     ErrorKind::WouldBlock => "Operation would block",
                     ErrorKind::Interrupted => "Operation interrupted",

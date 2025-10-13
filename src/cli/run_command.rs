@@ -9,7 +9,6 @@ pub fn run_command(cmd: &str, args: &[String]) -> Result<String, String> {
         "cd" => cd::cd(args),
         "rm" => rm::rm(args),
         "pwd" => pwd::pwd(args),
-        "mkdir" => mkdir::mkdir(args),
         "exit" => process::exit(0),
         _ => Err(format!("Command '{}' not found", cmd)),
     }

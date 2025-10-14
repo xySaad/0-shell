@@ -25,13 +25,14 @@ pub fn read_input() {
 
     loop {
         let input = read_line();
-        let (cmd, args) = inter.parse_line(&input);
+        let result = inter.parse_line(&input);
+        let (cmd, args) = (&result[0], &result[1..]);
         if cmd.trim().is_empty() {
             let _ = cli::print("$ ");
             continue;
         }
 
-        let _ = match run_command(&cmd, &args) {
+        let _ = match run_command(cmd, args) {
             Ok(out) => cli::print(&out),
             Err(err) => cli::error(&err),
         };

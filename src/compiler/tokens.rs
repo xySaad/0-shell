@@ -18,7 +18,7 @@ pub enum Operator {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Token {
-    Delimiter(char),
+    WhiteSpace(char),
     RawChar(char),
     Quote(Quote),
     Bracket(char),
@@ -42,7 +42,7 @@ impl From<char> for Token {
             '<' | '>' => Operator(Redirection(ch)),
             '\\' => BackSlash,
             '$' => DollarSign,
-            ' ' | '\n' | '\t' => Delimiter(ch),
+            ' ' | '\n' | '\t' => WhiteSpace(ch),
             _ => RawChar(ch),
         }
     }
@@ -51,7 +51,7 @@ impl From<char> for Token {
 impl From<Token> for String {
     fn from(t: Token) -> Self {
         match t {
-            Delimiter(ch) => ch,
+            WhiteSpace(ch) => ch,
             RawChar(ch) => ch,
             Token::Quote(quote) => match quote {
                 Quote::Single => '\'',

@@ -1,14 +1,15 @@
 use std::env;
 
-pub fn pwd(args: &[String]) -> Result<String, String> {
+pub fn pwd(args: &[String]) -> i32 {
     if args.len() != 0 {
-        return  Ok(String::from("pwd: too many arguments"));
+        println!("pwd: too many arguments");
+        return  1;
     }
     // should handle path when removed /home/amellagu/.local/share/Trash/files/test !!
-    let current_path = match env::var("PWD") {
-        Ok(p) => p.to_string(),
-        Err(e) => format!("No previous directory found (PWD not set): {}", e)
+    match env::var("PWD") {
+        Ok(p) => println!("{}", p.to_string()),
+        Err(e) => println!("No previous directory found (PWD not set): {}", e)
     };
 
-    Ok(String::from(current_path))
+    0
 }

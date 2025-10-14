@@ -21,6 +21,7 @@ impl Into<char> for Quote {
         }
     }
 }
+#[derive(Debug)]
 /// TODO: use ignored `Quoted.kind` and `Substitution.kind`
 pub enum Node {
     Raw(String),

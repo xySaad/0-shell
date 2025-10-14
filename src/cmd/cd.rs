@@ -5,12 +5,13 @@ use std::path::{Path, PathBuf};
 // should handle error output by message error !!
 // should handle "////"
 
-pub fn cd(args: &[String]) -> Result<String, String> {
-    println!("arguments: {:?}", args);
+pub fn cd(args: &[String]) -> i32 {
+    // println!("arguments: {:?}", args);
     println!("befor: {:?}", env::current_dir());
 
     if args.len() > 1 {
-        return Ok("0-shell: cd: too many arguments".to_string());
+        println!("0-shell: cd: too many arguments");
+        return 1;
     }
 
     let current_pwd = env::var("PWD").unwrap_or_else(|_| {
@@ -28,12 +29,12 @@ pub fn cd(args: &[String]) -> Result<String, String> {
     match target.as_str() {
         "~" => {
             let home = env::var("HOME").unwrap_or_else(|_| String::from("/"));
-            change_dir(&home, &current_pwd)?;
+            change_dir(&home, &current_pwd);
         }
 
         "-" => {
             let oldpwd = env::var("OLDPWD").unwrap_or_else(|_| current_pwd.clone());
-            change_dir(&oldpwd, &current_pwd)?;
+            change_dir(&oldpwd, &current_pwd);
             println!("{}", oldpwd);
         }
 
@@ -41,7 +42,7 @@ pub fn cd(args: &[String]) -> Result<String, String> {
             let mut logical = PathBuf::from(&current_pwd);
             logical.pop(); // remove last component logically (don’t resolve symlink)
             let new_path = logical.display().to_string();
-            change_dir(&new_path, &current_pwd)?;
+            change_dir(&new_path, &current_pwd);
         }
 
         other => {
@@ -51,12 +52,12 @@ pub fn cd(args: &[String]) -> Result<String, String> {
             } else {
                 pwd.join(other)
             };
-            change_dir(abs_path.to_str().unwrap(), &current_pwd)?;
+            change_dir(abs_path.to_str().unwrap(), &current_pwd);
         }
     };
 
     println!("after: {:?}", env::current_dir());
-    Ok("OK".to_string())
+    0
 
     // // path = "".to_string(); // handle
     // // path = "~".to_string(); // handle in parser +++

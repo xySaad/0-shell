@@ -1,13 +1,13 @@
 // use std::fs;
 // cp utility according to https://pubs.opengroup.org/onlinepubs/9699919799/utilities/cp.html
-pub fn rm(args: &[String]) -> Result<String, String> {
+pub fn rm(args: &[String]) -> i32 {
     println!("{:?}", args);
 
 
 
 
 
-    Ok("OK".to_string())
+    0
 }
 
 

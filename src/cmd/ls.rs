@@ -51,7 +51,7 @@ impl LsConfig {
                         self.f_flag_set = true;
                     }
                     _ => {
-                        eprintln!("ls: invalid option -- {c}");
+                        eprintln!("ls: invalid option -- '{c}'");
                         std::process::exit(2);
                     }
                 }
@@ -104,6 +104,8 @@ pub fn ls(args: &Vec<String>) -> i32 {
 // -a hnaa is handled as well
 // the error lackes the target_name
 // to be fixed later
+// let's try to return 2 iterators 
+// one for the the valid entries and one for the errors and then
 pub fn read_target_path(
     ls_config: &LsConfig
 ) -> impl Iterator<Item = Result<Vec<PathBuf>, io::Error>> {

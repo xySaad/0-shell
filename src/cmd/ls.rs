@@ -1,5 +1,6 @@
 use std::path::{ Path, PathBuf };
 use std::io;
+use std::io::{ ErrorKind };
 use std::fs::{ self, DirEntry, Metadata, Permissions };
 use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
 use users::{ get_user_by_uid, get_group_by_gid };
@@ -14,6 +15,7 @@ pub struct LsConfig {
     f_flag_set: bool,
     default_target_path: String,
     target_paths: Vec<String>,
+    status_code: u32,
     flags: Vec<String>,
 }
 
@@ -34,6 +36,7 @@ impl LsConfig {
                 .filter(|a| a.starts_with('-'))
                 .cloned()
                 .collect(),
+            status_code: 0,
         }
     }
     // didn't like too much i'll see if there is another way to do the same thing!
@@ -64,51 +67,94 @@ impl LsConfig {
             self.target_paths.push(self.default_target_path.clone());
         }
     }
-}
 
-pub fn ls(args: &Vec<String>) -> i32 {
-    let mut ls_config = LsConfig::new(args);
-    ls_config.parse();
+    // if any error is encountered the function must return the status code
+    fn extract_valid_entries(&mut self) {
+        let mut not_found = false;
+        let mut other_error = false;
+        self.target_paths.iter().for_each(|target_path| {
+            let path = Path::new(&target_path);
+            match fs::metadata(&path) {
+                Ok(metadata) => {}
+                Err(e) => {
+                    if e.kind() == ErrorKind::NotFound {
+                        self.status_code = 2;
+                        eprintln!("ls: cannot access '{}': No such file or directory", target_path);
+                    } else {
+                        if self.status_code != 2 {
+                            self.status_code = 1;
+                        }
+                        eprintln!("{}", e);
+                    }
+                }
+            }
+        });
+        self.target_paths.retain(|target_path| Path::new(&target_path).exists() == true);
+        self.target_paths.sort_by(|a, b| a.cmp(&b));
+    }
 
-    for target_path in read_target_path(&ls_config) {
-        //println!(" target path :{:?}", target_path);
-        match target_path {
-            Ok(entries_vec) => {
-                for ent in &entries_vec {
-                    //println!("entry {:?}", ent);
-                    let new_entry = Entry::new(ent);
-                    match new_entry {
-                        Ok(valid_entry) => {
-                            if ls_config.l_falg_set {
-                                eprintln!("{}", valid_entry.long_format());
-                            } else {
-                                eprintln!("{}", valid_entry.regular_format());
+    fn print_ls(&mut self) {
+        self.parse();
+        self.extract_valid_entries();
+
+        for (target_path, resulted_entry) in read_target_path(self) {
+            match resulted_entry {
+                Ok(entries_vec) => {
+                    if self.target_paths.len() != 1 || self.status_code != 0 {
+                        println!("{}:", target_path);
+                    }
+                    for ent in &entries_vec {
+                        let new_entry = Entry::new(ent);
+                        match new_entry {
+                            Ok(entry) => {
+                                if self.l_falg_set {
+                                    println!("{}", entry.long_format());
+                                } else {
+                                    println!("{}", entry.regular_format());
+                                }
+                            }
+                            // could be happening if the constructor returns an error while try to access the metadata
+                            Err(e) => {
+                                if self.status_code != 2 {
+                                    self.status_code = 1;
+                                }
+                                eprintln!("{}", e);
                             }
                         }
-                        Err(e) => {
-                            eprintln!("{:?}", e);
+                    }
+                }
+                Err(e) => {
+                    match e.kind() {
+                        ErrorKind::PermissionDenied => {
+                            self.status_code = 2;
+                            eprintln!("ls: cannot open directory '{}': Permission denied", target_path);
+                        }
+                        _ => {
+                            if self.status_code != 2 {
+                                self.status_code = 1;
+                            }
+                            eprintln!("{}", e.kind());
                         }
                     }
                 }
             }
-            Err(e) => {
-                eprintln!("{:}", e);
-            }
         }
     }
-
-    return 0;
 }
 
-// LET'S create a fn that handles the process of reading one target(file/ directory and returns the target with its DirEntries as a Vect)
-// -a hnaa is handled as well
-// the error lackes the target_name
-// to be fixed later
-// let's try to return 2 iterators 
-// one for the the valid entries and one for the errors and then
+pub fn ls(args: &Vec<String>) -> i32 {
+    let mut ls_config = LsConfig::new(args);
+    ls_config.print_ls();
+
+    return ls_config.status_code
+}
+
+// we have to sort the entries alphabetically and we need to filter the valid targets from the ls and print the errors and then
+// order them in alphabtical order and then process them
+
 pub fn read_target_path(
     ls_config: &LsConfig
-) -> impl Iterator<Item = Result<Vec<PathBuf>, io::Error>> {
+) -> impl Iterator<Item = (String, Result<Vec<PathBuf>, io::Error>)> {
     ls_config.target_paths.iter().map(|target_path| {
         let path = Path::new(target_path);
         if path.is_dir() {
@@ -121,7 +167,7 @@ pub fn read_target_path(
                                 paths.push(valid_entry.path());
                             }
                             Err(err) => {
-                                eprintln!("{}", err);
+                                eprintln!("target : {} {}", target_path, err);
                             }
                         }
                     }
@@ -142,14 +188,16 @@ pub fn read_target_path(
                             .collect::<Vec<_>>()
                     };
 
-                    return Ok(paths.clone());
+                    return (target_path.clone(), Ok(paths.clone()));
                 }
+                // here we need to return the error and the kind of it
                 Err(e) => {
-                    return Err(e);
+                    return (target_path.clone(), Err(e));
                 }
-            }
+            };
+        } else {
+            return (target_path.clone(), Ok(vec![]));
         }
-        Ok(vec![Path::new(target_path).to_path_buf()])
     })
 }
 
@@ -401,4 +449,4 @@ impl Entry {
 // we need to colorize the output if and only if istty()  ;)
 // we need to edit the impl iterator again and see if we can return 2 iterators (one of the valid targets and the ther for errors)
 // the print also needs more way of handling (we need to find the max of each field and then format )
-
+// need to know more about hiw

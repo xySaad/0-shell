@@ -3,13 +3,16 @@ use std::path::Path;
 
 pub fn mv(args: &[String]) -> i32 {
     // Check if exactly two arguments are provided (source and destination)
-    if args.len() != 2 {
-        eprintln!("Usage: mv <source> <destination>");
+    if args.len() == 0 {
+        eprintln!("mv: missing file operand");
+        return 1;
+    } else if args.len() == 1 {
+        eprintln!("mv: missing destination file operand after {}", args[0]);
         return 1;
     }
 
     let dest = Path::new(&args[args.len() - 1]);
-    
+
     for (i, arg) in args.iter().enumerate() {
         if i == args.len() - 1 {
             break;
@@ -18,7 +21,10 @@ pub fn mv(args: &[String]) -> i32 {
         let source = Path::new(&arg);
         // Check if source exists
         if !source.exists() {
-            eprintln!("Error: Source '{}' does not exist", source.display());
+            eprintln!(
+                "mv: cannot stat '{}': No such file or directory",
+                source.display()
+            );
             return 1;
         }
 
@@ -26,9 +32,7 @@ pub fn mv(args: &[String]) -> i32 {
         if dest.is_dir() {
             let dest_file = dest.join(source.file_name().unwrap_or_default());
             return match fs::rename(source, &dest_file) {
-                Ok(()) => {
-                    0
-                }
+                Ok(()) => 0,
                 Err(e) => {
                     eprintln!(
                         "Error moving '{}' to '{}': {}",

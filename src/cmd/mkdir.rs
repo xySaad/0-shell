@@ -1,19 +1,21 @@
 use std::fs;
 use std::io::ErrorKind;
 
-pub fn mkdir(args: &[String]) -> Result<String, String> {
+pub fn mkdir(args: &[String]) -> i32 {
     if args.is_empty() {
-        return Err(String::from("mkdir: missing operand"));
+        eprintln!("mkdir: missing operand");
+        return 1;
     }
 
-    let mut errors: Vec<String> = Vec::new();
+    let mut counter: i32 = 0;
 
     for dir in args {
         if dir.len() > 255 {
-            errors.push(format!(
+            eprintln!(
                 "mkdir: cannot create directory '{}': File name too long",
                 dir
-            ));
+            );
+            counter += 1;
             continue;
         }
 
@@ -30,14 +32,11 @@ pub fn mkdir(args: &[String]) -> Result<String, String> {
                     ErrorKind::Other => "Unknown error",
                     _ => "An error occurred",
                 };
-                errors.push(format!("mkdir: cannot create directory '{}': {}", dir, msg));
+                eprintln!("mkdir: cannot create directory '{}': {}", dir, msg);
+                counter += 1;
             }
         }
     }
 
-    if !errors.is_empty() {
-        let err = errors.join("\n");
-        return Err(err);
-    }
-    Ok(String::new())
+    if counter > 0 { 1 } else { 0 }
 }

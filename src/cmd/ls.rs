@@ -15,7 +15,7 @@ pub struct LsConfig {
     f_flag_set: bool,
     default_target_path: String,
     target_paths: Vec<String>,
-    status_code: u32,
+    status_code: RefCell<i32>,
     flags: Vec<String>,
 }
 
@@ -36,7 +36,7 @@ impl LsConfig {
                 .filter(|a| a.starts_with('-'))
                 .cloned()
                 .collect(),
-            status_code: 0,
+            status_code: RefCell::new(0),
         }
     }
     // didn't like too much i'll see if there is another way to do the same thing!
@@ -70,19 +70,17 @@ impl LsConfig {
 
     // if any error is encountered the function must return the status code
     fn extract_valid_entries(&mut self) {
-        let mut not_found = false;
-        let mut other_error = false;
         self.target_paths.iter().for_each(|target_path| {
             let path = Path::new(&target_path);
             match fs::metadata(&path) {
                 Ok(metadata) => {}
                 Err(e) => {
                     if e.kind() == ErrorKind::NotFound {
-                        self.status_code = 2;
+                        self.status_code = RefCell::new(2);
                         eprintln!("ls: cannot access '{}': No such file or directory", target_path);
                     } else {
-                        if self.status_code != 2 {
-                            self.status_code = 1;
+                        if *self.status_code.borrow() != 2 {
+                            *self.status_code.borrow_mut() = 1;
                         }
                         eprintln!("{}", e);
                     }
@@ -100,11 +98,11 @@ impl LsConfig {
         for (target_path, resulted_entry) in read_target_path(self) {
             match resulted_entry {
                 Ok(entries_vec) => {
-                    if self.target_paths.len() != 1 || self.status_code != 0 {
+                    if self.target_paths.len() != 1 || *self.status_code.borrow() != 0 {
                         println!("{}:", target_path);
                     }
                     for ent in &entries_vec {
-                        let new_entry = Entry::new(ent);
+                        let new_entry = Entry::new(ent, self);
                         match new_entry {
                             Ok(entry) => {
                                 if self.l_falg_set {
@@ -115,8 +113,8 @@ impl LsConfig {
                             }
                             // could be happening if the constructor returns an error while try to access the metadata
                             Err(e) => {
-                                if self.status_code != 2 {
-                                    self.status_code = 1;
+                                if *self.status_code.borrow() != 2 {
+                                    *self.status_code.borrow_mut() = 1;
                                 }
                                 eprintln!("{}", e);
                             }
@@ -126,12 +124,12 @@ impl LsConfig {
                 Err(e) => {
                     match e.kind() {
                         ErrorKind::PermissionDenied => {
-                            self.status_code = 2;
+                            *self.status_code.borrow_mut() = 2;
                             eprintln!("ls: cannot open directory '{}': Permission denied", target_path);
                         }
                         _ => {
-                            if self.status_code != 2 {
-                                self.status_code = 1;
+                            if *self.status_code.borrow() != 2 {
+                                *self.status_code.borrow_mut() = 1;
                             }
                             eprintln!("{}", e.kind());
                         }
@@ -145,8 +143,9 @@ impl LsConfig {
 pub fn ls(args: &Vec<String>) -> i32 {
     let mut ls_config = LsConfig::new(args);
     ls_config.print_ls();
-
-    return ls_config.status_code
+    let status_code = *ls_config.status_code.borrow();
+    println!("status code: {}", status_code);
+    return *ls_config.status_code.borrow();
 }
 
 // we have to sort the entries alphabetically and we need to filter the valid targets from the ls and print the errors and then
@@ -172,10 +171,9 @@ pub fn read_target_path(
                         }
                     }
 
-                    let paths = if ls_config.a_flag_set {
+                    let mut paths = if ls_config.a_flag_set {
                         paths.push(Path::new(".").to_path_buf());
                         paths.push(Path::new("..").to_path_buf());
-                        paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
                         paths
                     } else {
                         paths
@@ -187,6 +185,7 @@ pub fn read_target_path(
                             )
                             .collect::<Vec<_>>()
                     };
+                    paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
 
                     return (target_path.clone(), Ok(paths.clone()));
                 }
@@ -213,9 +212,10 @@ enum FileTypeEnum {
     // Unknown,
 }
 
+// the file mode needs to be changed for the sake of coloration ( we need the persmissions to see if we can colorise things)
 #[derive(Debug)]
 pub struct Entry {
-    permissions: Permissions,
+    permissions: String,
     number_of_links: u64,
     onwer_name: String,
     group_name: String,
@@ -226,10 +226,11 @@ pub struct Entry {
     is_executable: RefCell<bool>,
     colored_entry_name: RefCell<String>,
     path: PathBuf,
+    ls_config: LsConfig,
 }
 
 impl Entry {
-    pub fn new(path: &PathBuf) -> Result<Self, io::Error> {
+    pub fn new(path: &PathBuf, ls_config: &LsConfig) -> Result<Self, io::Error> {
         let metadata = match fs::symlink_metadata(path) {
             Ok(some_metadata) => some_metadata,
             Err(e) => {
@@ -238,7 +239,7 @@ impl Entry {
         };
 
         Ok(Self {
-            permissions: metadata.permissions(),
+            permissions: Self::format_file_mode(path, &metadata),
             file_type: Self::get_file_type(&metadata),
             size: metadata.size(),
             number_of_links: metadata.nlink(),
@@ -249,6 +250,7 @@ impl Entry {
             is_executable: RefCell::new(false),
             colored_entry_name: RefCell::new(format!("{}", Self::get_entry_name(path).white())),
             path: path.clone(),
+            ls_config: ls_config.clone(),
         })
     }
 
@@ -266,8 +268,16 @@ impl Entry {
 
     fn color_entry_name(&self) {
         let entry_type = &self.file_type;
-        let is_executable = self.is_executable.borrow();
+        if self.permissions.contains('x') && self.file_type == FileTypeEnum::Regular {
+            *self.is_executable.borrow_mut() = true;
+        }
         match true {
+            _ if *self.is_executable.borrow() == true => {
+                *self.colored_entry_name.borrow_mut() = format!(
+                    "{}",
+                    self.entry_name.clone().bold().green()
+                );
+            }
             _ if *entry_type == FileTypeEnum::Directory => {
                 *self.colored_entry_name.borrow_mut() = format!(
                     "{}",
@@ -295,12 +305,6 @@ impl Entry {
                 *self.colored_entry_name.borrow_mut() = format!(
                     "{}",
                     self.entry_name.clone().bold().white()
-                );
-            }
-            _ if *entry_type == FileTypeEnum::Directory && *is_executable == true => {
-                *self.colored_entry_name.borrow_mut() = format!(
-                    "{}",
-                    self.entry_name.clone().bold().green()
                 );
             }
             _ => {
@@ -345,8 +349,8 @@ impl Entry {
         datetime.format("%b %e %H:%M").to_string()
     }
 
-    fn format_file_mode(&self) -> String {
-        let entry_type = match self.file_type {
+    fn format_file_mode(path: &PathBuf, metadata: &Metadata) -> String {
+        let entry_type = match Self::get_file_type(metadata) {
             FileTypeEnum::Directory => "d",
             FileTypeEnum::BlockDevice => "b",
             FileTypeEnum::CharDevice => "c",
@@ -357,7 +361,7 @@ impl Entry {
             // FileTypeEnum::Unknown => "?",
         };
 
-        let mode = self.permissions.mode();
+        let mode = metadata.permissions().mode();
         let permissions = [
             // owner permissions
             if (mode & 0o400) != 0 {
@@ -385,11 +389,6 @@ impl Entry {
             if (mode & 0o001) != 0 { 'x' } else { '-' },
         ];
         let permissions: String = permissions.iter().collect();
-        if permissions.contains("x") {
-            let mut executable = self.is_executable.borrow_mut();
-            *executable = true;
-        }
-
         entry_type.to_string() + &permissions
     }
 
@@ -399,9 +398,12 @@ impl Entry {
     //  <date and time>, <pathname>
     pub fn long_format(&self) -> String {
         self.color_entry_name();
+        if self.ls_config.f_flag_set {
+            self.append_file_type_indicator();
+        }
         let formatted_string = format!(
             "{} {:>5} {} {} {:>5} {} {}",
-            self.format_file_mode(),
+            self.permissions,
             self.number_of_links,
             self.onwer_name,
             self.group_name,
@@ -411,6 +413,7 @@ impl Entry {
         );
         if self.file_type == FileTypeEnum::Symlink {
             let pointed_to = if let Ok(pointed_to) = self.path.read_link() {
+                println!("point to :  {:?}", pointed_to);
                 Self::get_entry_name(&pointed_to)
             } else {
                 "".to_string()
@@ -422,7 +425,9 @@ impl Entry {
     // they need to be aligned ;)
     pub fn regular_format(&self) -> String {
         self.color_entry_name();
-        self.append_file_type_indicator();
+        if self.ls_config.f_flag_set {
+            self.append_file_type_indicator();
+        }
         format!("{}", *self.colored_entry_name.borrow())
     }
 
@@ -438,7 +443,7 @@ impl Entry {
             self.colored_entry_name.borrow_mut().push_str("/");
         } else if *self.is_executable.borrow() {
             self.colored_entry_name.borrow_mut().push_str("*");
-        } else if self.file_type == FileTypeEnum::Symlink {
+        } else if self.file_type == FileTypeEnum::Symlink && !self.ls_config.l_falg_set {
             self.colored_entry_name.borrow_mut().push_str("@");
         } else if self.file_type == FileTypeEnum::NamedPipe {
             self.colored_entry_name.borrow_mut().push_str("|");
@@ -450,3 +455,5 @@ impl Entry {
 // we need to edit the impl iterator again and see if we can return 2 iterators (one of the valid targets and the ther for errors)
 // the print also needs more way of handling (we need to find the max of each field and then format )
 // need to know more about hiw
+
+// to test things out here's the path  :   ../../../../dev

@@ -7,6 +7,7 @@ use users::{ get_user_by_uid, get_group_by_gid };
 use chrono::{ NaiveDateTime, Local, TimeZone };
 use colored::{ Colorize, ColoredString, Color };
 use std::cell::RefCell;
+use std::fmt;
 
 #[derive(Debug, Eq, Clone, PartialEq)]
 pub struct LsConfig {
@@ -98,6 +99,8 @@ impl LsConfig {
         for (target_path, resulted_entry) in read_target_path(self) {
             match resulted_entry {
                 Ok(entries_vec) => {
+                    let entries = Entries::new(&entries_vec, self);
+                    println!("vec_ entries : {}", entries);
                     if self.target_paths.len() != 1 || *self.status_code.borrow() != 0 {
                         println!("{}:", target_path);
                     }
@@ -186,7 +189,6 @@ pub fn read_target_path(
                             .collect::<Vec<_>>()
                     };
                     paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
-
                     return (target_path.clone(), Ok(paths.clone()));
                 }
                 // here we need to return the error and the kind of it
@@ -195,7 +197,7 @@ pub fn read_target_path(
                 }
             };
         } else {
-            return (target_path.clone(), Ok(vec![]));
+            return (target_path.clone(), Ok(vec![Path::new(target_path).to_path_buf()]));
         }
     })
 }
@@ -362,6 +364,7 @@ impl Entry {
         };
 
         let mode = metadata.permissions().mode();
+        println!("mode : {:?}", mode);
         let permissions = [
             // owner permissions
             if (mode & 0o400) != 0 {
@@ -413,7 +416,6 @@ impl Entry {
         );
         if self.file_type == FileTypeEnum::Symlink {
             let pointed_to = if let Ok(pointed_to) = self.path.read_link() {
-                println!("point to :  {:?}", pointed_to);
                 Self::get_entry_name(&pointed_to)
             } else {
                 "".to_string()
@@ -457,3 +459,33 @@ impl Entry {
 // need to know more about hiw
 
 // to test things out here's the path  :   ../../../../dev
+
+// there is a minor and major for the char and the block files
+// there is a problem in the time
+// there is a t and s (that need to be handled for the the execute)
+//  implements the display trait for the vec<PathBuf>
+// seems a good idea
+#[derive(Debug, Clone)]
+struct Entries {
+    entries: Vec<PathBuf>,
+    ls_config: LsConfig,
+}
+
+impl Entries {
+    fn new(entries: &Vec<PathBuf>, ls_config: &LsConfig) -> Self {
+        Self { entries: entries.clone(), ls_config: ls_config.clone() }
+    }
+}
+
+// don't know if it will work
+// i will need the ls_config
+impl fmt::Display for Entries {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for entry in self.entries.clone() {
+            let path = Entry::new(&entry, &self.ls_config);
+            write!(f, "{:?}", path)?;
+        }
+
+        Ok(())
+    }
+}

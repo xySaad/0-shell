@@ -3,6 +3,7 @@ use std::io;
 use std::io::{ ErrorKind };
 use std::fs::{ self, DirEntry, Metadata, Permissions };
 use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
+use std::os::linux::fs::MetadataExt as LinuxMetadataExt;
 use users::{ get_user_by_uid, get_group_by_gid };
 use chrono::{ NaiveDateTime, Local, TimeZone };
 use colored::{ Colorize, ColoredString, Color };
@@ -12,7 +13,7 @@ use std::fmt;
 #[derive(Debug, Eq, Clone, PartialEq)]
 pub struct LsConfig {
     a_flag_set: bool,
-    l_falg_set: bool,
+    l_flag_set: bool,
     f_flag_set: bool,
     default_target_path: String,
     target_paths: Vec<String>,
@@ -24,7 +25,7 @@ impl LsConfig {
     fn new(args: &Vec<String>) -> Self {
         Self {
             a_flag_set: false,
-            l_falg_set: false,
+            l_flag_set: false,
             f_flag_set: false,
             default_target_path: ".".to_string(),
             target_paths: args
@@ -49,7 +50,7 @@ impl LsConfig {
                         self.a_flag_set = true;
                     }
                     'l' => {
-                        self.l_falg_set = true;
+                        self.l_flag_set = true;
                     }
                     'F' => {
                         self.f_flag_set = true;
@@ -100,29 +101,10 @@ impl LsConfig {
             match resulted_entry {
                 Ok(entries_vec) => {
                     let entries = Entries::new(&entries_vec, self);
-                    println!("vec_ entries : {}", entries);
                     if self.target_paths.len() != 1 || *self.status_code.borrow() != 0 {
                         println!("{}:", target_path);
                     }
-                    for ent in &entries_vec {
-                        let new_entry = Entry::new(ent, self);
-                        match new_entry {
-                            Ok(entry) => {
-                                if self.l_falg_set {
-                                    println!("{}", entry.long_format());
-                                } else {
-                                    println!("{}", entry.regular_format());
-                                }
-                            }
-                            // could be happening if the constructor returns an error while try to access the metadata
-                            Err(e) => {
-                                if *self.status_code.borrow() != 2 {
-                                    *self.status_code.borrow_mut() = 1;
-                                }
-                                eprintln!("{}", e);
-                            }
-                        }
-                    }
+                    println!("{}", entries);
                 }
                 Err(e) => {
                     match e.kind() {
@@ -202,7 +184,7 @@ pub fn read_target_path(
     })
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum FileTypeEnum {
     Regular,
     Directory,
@@ -215,18 +197,18 @@ enum FileTypeEnum {
 }
 
 // the file mode needs to be changed for the sake of coloration ( we need the persmissions to see if we can colorise things)
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Entry {
     permissions: String,
-    number_of_links: u64,
+    number_of_links: String,
     onwer_name: String,
     group_name: String,
-    size: u64,
-    last_modified: i64,
+    minor: String,
+    major: String,
+    last_modified: String,
+    colored_entry_name: String,
     entry_name: String,
     file_type: FileTypeEnum,
-    is_executable: RefCell<bool>,
-    colored_entry_name: RefCell<String>,
     path: PathBuf,
     ls_config: LsConfig,
 }
@@ -239,21 +221,49 @@ impl Entry {
                 return Err(e);
             }
         };
-
+        let size = Self::get_number_of_bytes(&metadata);
         Ok(Self {
             permissions: Self::format_file_mode(path, &metadata),
             file_type: Self::get_file_type(&metadata),
-            size: metadata.size(),
-            number_of_links: metadata.nlink(),
-            last_modified: metadata.mtime(),
+            major: size[0].clone(),
+            minor: size[1].clone(),
+            number_of_links: metadata.nlink().to_string(),
+            last_modified: Self::format_date(&metadata),
             entry_name: Self::get_entry_name(path),
             onwer_name: Self::get_user_name(metadata.uid()),
             group_name: Self::get_group_name(metadata.gid()),
-            is_executable: RefCell::new(false),
-            colored_entry_name: RefCell::new(format!("{}", Self::get_entry_name(path).white())),
+            colored_entry_name: Self::color_entry_name(path, &metadata),
             path: path.clone(),
             ls_config: ls_config.clone(),
         })
+    }
+
+    fn as_array(&self) -> Vec<String> {
+        vec![
+            self.permissions.clone(),
+            self.number_of_links.clone(),
+            self.onwer_name.clone(),
+            self.group_name.clone(),
+            self.major.clone(),
+            self.minor.clone(),
+            self.last_modified.clone(),
+            self.colored_entry_name.clone()
+        ]
+    }
+
+    fn get_number_of_bytes(metadata: &Metadata) -> Vec<String> {
+        let file_type = Self::get_file_type(metadata);
+        if file_type == FileTypeEnum::CharDevice || file_type == FileTypeEnum::BlockDevice {
+            let rdev = LinuxMetadataExt::st_rdev(metadata);
+
+            let mut major = (((rdev >> 8) & 0xfff) as u32).to_string();
+            major.push(',');
+            let minor = (((rdev & 0xff) | ((rdev >> 12) & 0xfff00)) as u32).to_string();
+
+            return vec![major, minor];
+        }
+
+        vec!["".to_string(), metadata.size().to_string()]
     }
 
     fn get_entry_name(dir: &PathBuf) -> String {
@@ -268,56 +278,33 @@ impl Entry {
         }
     }
 
-    fn color_entry_name(&self) {
-        let entry_type = &self.file_type;
-        if self.permissions.contains('x') && self.file_type == FileTypeEnum::Regular {
-            *self.is_executable.borrow_mut() = true;
+    fn color_entry_name(path: &PathBuf, metadata: &Metadata) -> String {
+        let entry_type = Self::get_file_type(metadata);
+        let permissions = Self::format_file_mode(path, metadata);
+        let mut is_executable = false;
+        if permissions.contains('x') && entry_type == FileTypeEnum::Regular {
+            is_executable = true;
         }
         match true {
-            _ if *self.is_executable.borrow() == true => {
-                *self.colored_entry_name.borrow_mut() = format!(
-                    "{}",
-                    self.entry_name.clone().bold().green()
-                );
-            }
-            _ if *entry_type == FileTypeEnum::Directory => {
-                *self.colored_entry_name.borrow_mut() = format!(
-                    "{}",
-                    self.entry_name.clone().blue().bold()
-                );
-            }
+            _ if is_executable == true => format!("{}", Self::get_entry_name(path).bold().green()),
+
+            _ if entry_type == FileTypeEnum::Directory =>
+                format!("{}", Self::get_entry_name(path).blue().bold()),
+
             _ if
-                *entry_type == FileTypeEnum::BlockDevice ||
-                *entry_type == FileTypeEnum::CharDevice ||
-                *entry_type == FileTypeEnum::NamedPipe
-            => {
-                *self.colored_entry_name.borrow_mut() = format!(
-                    "{}",
-                    self.entry_name.clone().bold().yellow()
-                );
-            }
-            _ if *entry_type == FileTypeEnum::Symlink => {
-                *self.colored_entry_name.borrow_mut() = format!(
-                    "{}",
-                    self.entry_name.cyan().bold()
-                );
-            }
+                entry_type == FileTypeEnum::BlockDevice ||
+                entry_type == FileTypeEnum::CharDevice ||
+                entry_type == FileTypeEnum::NamedPipe
+            => format!("{}", Self::get_entry_name(path).bold().yellow()),
 
-            _ if *entry_type == FileTypeEnum::Socket => {
-                *self.colored_entry_name.borrow_mut() = format!(
-                    "{}",
-                    self.entry_name.clone().bold().white()
-                );
-            }
-            _ => {
-                *self.colored_entry_name.borrow_mut() = format!(
-                    "{}",
-                    self.entry_name.clone().bright_white()
-                );
-            }
-        };
+            _ if entry_type == FileTypeEnum::Symlink =>
+                format!("{}", Self::get_entry_name(path).cyan().bold()),
+
+            _ if entry_type == FileTypeEnum::Socket =>
+                format!("{}", Self::get_entry_name(path).bold().white()),
+            _ => format!("{}", Self::get_entry_name(path).bright_white()),
+        }
     }
-
     fn get_file_type(metadata: &Metadata) -> FileTypeEnum {
         match true {
             _ if metadata.file_type().is_dir() => FileTypeEnum::Directory,
@@ -343,8 +330,8 @@ impl Entry {
         }
     }
 
-    fn format_date(&self) -> String {
-        let naive_datetime = NaiveDateTime::from_timestamp_opt(self.last_modified, 0).expect(
+    fn format_date(metadata: &Metadata) -> String {
+        let naive_datetime = NaiveDateTime::from_timestamp_opt(metadata.mtime(), 0).expect(
             "Invalid timestamp"
         );
         let datetime = Local.from_local_datetime(&naive_datetime).unwrap();
@@ -364,7 +351,6 @@ impl Entry {
         };
 
         let mode = metadata.permissions().mode();
-        println!("mode : {:?}", mode);
         let permissions = [
             // owner permissions
             if (mode & 0o400) != 0 {
@@ -399,38 +385,26 @@ impl Entry {
     // "%s %u %s %s %u %s %s\n", <file mode>, <number of links>,
     //  <owner name>, <group name>, <number of bytes in the file>,
     //  <date and time>, <pathname>
-    pub fn long_format(&self) -> String {
-        self.color_entry_name();
+    pub fn long_format(&mut self) {
         if self.ls_config.f_flag_set {
             self.append_file_type_indicator();
         }
-        let formatted_string = format!(
-            "{} {:>5} {} {} {:>5} {} {}",
-            self.permissions,
-            self.number_of_links,
-            self.onwer_name,
-            self.group_name,
-            self.size,
-            self.format_date(),
-            *self.colored_entry_name.borrow()
-        );
         if self.file_type == FileTypeEnum::Symlink {
             let pointed_to = if let Ok(pointed_to) = self.path.read_link() {
                 Self::get_entry_name(&pointed_to)
             } else {
                 "".to_string()
             };
-            return formatted_string + " -> " + &pointed_to;
+            self.colored_entry_name.push_str(" -> ");
+            self.colored_entry_name.push_str(&pointed_to);
         }
-        formatted_string
     }
     // they need to be aligned ;)
-    pub fn regular_format(&self) -> String {
-        self.color_entry_name();
+    pub fn regular_format(&mut self) -> String {
         if self.ls_config.f_flag_set {
             self.append_file_type_indicator();
         }
-        format!("{}", *self.colored_entry_name.borrow())
+        format!("{}", self.colored_entry_name)
     }
 
     /*Do not follow symbolic links named as operands unless the -H or -L options are specified.
@@ -440,15 +414,19 @@ impl Entry {
     and an at sign ( '@' ) after each that is a symbolic link.
     For other file types, other symbols may be written.*/
 
-    pub fn append_file_type_indicator(&self) {
+    pub fn append_file_type_indicator(&mut self) {
+        let mut is_executable = false;
+        if self.permissions.contains('x') && self.file_type == FileTypeEnum::Regular {
+            is_executable = true;
+        }
         if self.file_type == FileTypeEnum::Directory {
-            self.colored_entry_name.borrow_mut().push_str("/");
-        } else if *self.is_executable.borrow() {
-            self.colored_entry_name.borrow_mut().push_str("*");
-        } else if self.file_type == FileTypeEnum::Symlink && !self.ls_config.l_falg_set {
-            self.colored_entry_name.borrow_mut().push_str("@");
+            self.colored_entry_name.push_str("/");
+        } else if is_executable {
+            self.colored_entry_name.push_str("*");
+        } else if self.file_type == FileTypeEnum::Symlink && !self.ls_config.l_flag_set {
+            self.colored_entry_name.push_str("@");
         } else if self.file_type == FileTypeEnum::NamedPipe {
-            self.colored_entry_name.borrow_mut().push_str("|");
+            self.colored_entry_name.push_str("|");
         }
     }
 }
@@ -467,13 +445,25 @@ impl Entry {
 // seems a good idea
 #[derive(Debug, Clone)]
 struct Entries {
-    entries: Vec<PathBuf>,
+    entries: Vec<Vec<String>>,
     ls_config: LsConfig,
 }
 
 impl Entries {
-    fn new(entries: &Vec<PathBuf>, ls_config: &LsConfig) -> Self {
-        Self { entries: entries.clone(), ls_config: ls_config.clone() }
+    fn new(paths: &Vec<PathBuf>, ls_config: &LsConfig) -> Self {
+        let mut entries = Vec::new();
+        for path in paths {
+            let to_entry = Entry::new(path, ls_config);
+            match to_entry {
+                Ok(valid_entry) => {
+                    entries.push(valid_entry.as_array());
+                }
+                Err(invalid_entry) => {
+                    eprintln!("Error : {}", invalid_entry);
+                }
+            }
+        }
+        Self { entries: entries, ls_config: ls_config.clone() }
     }
 }
 
@@ -481,11 +471,36 @@ impl Entries {
 // i will need the ls_config
 impl fmt::Display for Entries {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for entry in self.entries.clone() {
-            let path = Entry::new(&entry, &self.ls_config);
-            write!(f, "{:?}", path)?;
-        }
+        //  iterate through the columns to find the max
+        let mut vec_max = Vec::new();
+        for i in 0..self.entries[0].len() {
+            let mut max = self.entries[0][i].len();
 
+            for row in &self.entries {
+                if max < row[i].len() {
+                    max = row[i].len();
+                }
+            }
+            vec_max.push(max);
+        }
+        // eprintln!("{:?}", vec_max);
+
+        if self.ls_config.l_flag_set {
+            // we need to find the max for each field
+            for j in 0..self.entries.len() {
+                for k in 0..self.entries[j].len() {
+                    let value = vec_max[k];
+                    if k == 1 || k == 4 || k == 5 {
+                        let formatted = format!("{0:>1$}", self.entries[j][k], value);
+                        write!(f, "{} ", formatted)?;
+                    } else {
+                        let formatted = format!("{0:<1$}", self.entries[j][k], value);
+                        write!(f, "{} ", formatted)?;
+                    }
+                }
+                writeln!(f)?;
+            }
+        }
         Ok(())
     }
 }

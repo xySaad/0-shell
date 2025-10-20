@@ -11,15 +11,6 @@ pub fn mkdir(args: &[String]) -> i32 {
     let mut counter: i32 = 0;
 
     for dir in args {
-        if dir.len() > 255 {
-            eprintln!(
-                "mkdir: cannot create directory '{}': File name too long",
-                dir
-            );
-            counter += 1;
-            continue;
-        }
-
         match fs::create_dir(dir) {
             Ok(_) => {}
             Err(e) => {

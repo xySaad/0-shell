@@ -1,11 +1,10 @@
 use std::path::{ Path, PathBuf };
 use std::io;
 use std::io::{ ErrorKind };
-use std::fs::{ self};
+use std::fs::{ self };
 use std::cell::RefCell;
 
-
-use super::entries::{ Entries };
+use super::{ entries::{ Entries }, entry::{ FileTypeEnum, Entry } };
 
 #[derive(Debug, Eq, Clone, PartialEq)]
 pub struct LsConfig {
@@ -95,11 +94,21 @@ impl LsConfig {
         self.extract_valid_entries();
 
         for (target_path, resulted_entry) in read_target_path(self) {
+            let is_directory = match Entry::new(&Path::new(&target_path).to_path_buf(), self) {
+                Ok(valid_entry) => valid_entry.file_type == FileTypeEnum::Directory,
+                Err(_) => false,
+            };
             match resulted_entry {
                 Ok(entries_vec) => {
                     let entries = Entries::new(&entries_vec, self);
-                    if self.target_paths.len() != 1 || *self.status_code.borrow() != 0 {
+                    if
+                        (self.target_paths.len() != 1 || *self.status_code.borrow() != 0) &&
+                        is_directory
+                    {
                         println!("{}:", target_path);
+                    }
+                    if is_directory {
+                        println!("total {}", entries.total);
                     }
                     println!("{}", entries);
                 }
@@ -141,10 +150,27 @@ pub fn read_target_path(
                             }
                         }
                     }
+                    paths.sort_by(|a, b| {
+                        let binding_a = a
+                            .clone()
+                            .file_name()
+                            .unwrap()
+                            .to_string_lossy()
+                            .to_string();
+                        let entry_a = binding_a.strip_prefix(".").unwrap_or(&binding_a);
+                        let binding_b = b
+                            .clone()
+                            .file_name()
+                            .unwrap()
+                            .to_string_lossy()
+                            .to_string();
+                        let entry_b = binding_b.strip_prefix(".").unwrap_or(&binding_b);
+                        entry_a.cmp(&entry_b)
+                    });
 
                     let mut paths = if ls_config.a_flag_set {
-                        paths.push(Path::new(".").to_path_buf());
-                        paths.push(Path::new("..").to_path_buf());
+                        paths.insert(0, Path::new(".").to_path_buf());
+                        paths.insert(1, Path::new("..").to_path_buf());
                         paths
                     } else {
                         paths
@@ -156,7 +182,7 @@ pub fn read_target_path(
                             )
                             .collect::<Vec<_>>()
                     };
-                    paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+
                     return (target_path.clone(), Ok(paths.clone()));
                 }
                 // here we need to return the error and the kind of it

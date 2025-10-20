@@ -70,7 +70,7 @@ impl LsConfig {
     fn extract_valid_entries(&mut self) {
         self.target_paths.iter().for_each(|target_path| {
             let path = Path::new(&target_path);
-            match fs::metadata(&path) {
+            match fs::symlink_metadata(&path) {
                 Ok(_) => {}
                 Err(e) => {
                     if e.kind() == ErrorKind::NotFound {
@@ -85,7 +85,8 @@ impl LsConfig {
                 }
             }
         });
-        self.target_paths.retain(|target_path| Path::new(&target_path).exists() == true);
+        // exists won't work here because it's part of metadata 
+        self.target_paths.retain(|target_path| { fs::symlink_metadata(target_path).is_ok() });
         self.target_paths.sort_by(|a, b| a.cmp(&b));
     }
 

@@ -47,7 +47,7 @@ impl fmt::Display for Entries {
             vec_max.push(max);
         }
         // eprintln!("{:?}", vec_max);
-       
+
         // we need to find the max for each field
         for j in 0..self.entries.len() {
             for k in 0..self.entries[j].len() {
@@ -66,7 +66,9 @@ impl fmt::Display for Entries {
                     write!(f, "{} ", formatted)?;
                 }
             }
-            writeln!(f)?;
+            if j != self.entries.len() - 1 {
+                writeln!(f)?;
+            }
         }
 
         Ok(())

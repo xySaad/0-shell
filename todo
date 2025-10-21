@@ -7,13 +7,13 @@ coloring is a must  -> needed when tty
 -F -> Done but not integred 
 handle the (commands put on file instead of a directory) -> Done 
 // we need to colorize the output if and only if istty()  ;)
-// we need to edit the impl iterator again and see if we can return 2 iterators (one of the valid targets and the ther for errors)
-// the print also needs more way of handling (we need to find the max of each field and then format )
+// we need to edit the impl iterator again and see if we can return 2 iterators (one of the valid targets and the ther for errors) done 
+// the print also needs more way of handling (we need to find the max of each field and then format ) done  
 // need to know more about hiw
 
-// to test things out here's the path  :   ../../../../dev
+// to test things out here's the path  :   ../../../../dev 
 
-// there is a minor and major for the char and the block files
+// there is a minor and major for the char and the block files done 
 // there is a problem in the time
 // there is a t and s (that need to be handled for the the execute)
-//  implements the display trait for the vec<PathBuf>
+//  implements the display trait for the vec<PathBuf>  done 

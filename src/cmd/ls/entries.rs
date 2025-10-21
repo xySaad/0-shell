@@ -1,7 +1,7 @@
 use std::path::{ PathBuf };
 use std::fmt;
 use super::{ entry::{ Entry }, ls_config::{ LsConfig } };
-
+use std::os::linux::fs::MetadataExt;
 // seems a good idea
 #[derive(Debug, Clone)]
 pub struct Entries {
@@ -18,7 +18,7 @@ impl Entries {
             match to_entry {
                 Ok(mut valid_entry) => {
                     entries.push(valid_entry.as_array());
-                    total += valid_entry.num_blocks;
+                    total += valid_entry.metadata.st_blocks();
                 }
                 Err(invalid_entry) => {
                     eprintln!("Error : {}", invalid_entry);

@@ -96,7 +96,7 @@ impl LsConfig {
 
         for (target_path, resulted_entry) in read_target_path(self) {
             let is_directory = match Entry::new(&Path::new(&target_path).to_path_buf(), self) {
-                Ok(valid_entry) => valid_entry.file_type == FileType::Directory,
+                Ok(valid_entry) => valid_entry.get_entry_type().0 == FileType::Directory,
                 Err(_) => false,
             };
             match resulted_entry {
@@ -138,7 +138,7 @@ pub fn read_target_path(
 ) -> impl Iterator<Item = (String, Result<Vec<PathBuf>, io::Error>)> {
     ls_config.target_paths.iter().map(|target_path| {
         let path = Path::new(target_path);
-        if path.is_dir() {
+        if path.is_dir() && !path.is_symlink() {
             match fs::read_dir(target_path) {
                 Ok(entries) => {
                     let mut paths = Vec::new();
@@ -171,8 +171,8 @@ pub fn read_target_path(
                     });
 
                     let mut paths = if ls_config.a_flag_set {
-                        paths.insert(0, Path::new(".").to_path_buf());
-                        paths.insert(1, Path::new("..").to_path_buf());
+                        paths.insert(0, Path::new(target_path).join(".").to_path_buf());
+                        paths.insert(1, Path::new(target_path).join("..").to_path_buf());
                         paths
                     } else {
                         paths
@@ -184,7 +184,7 @@ pub fn read_target_path(
                             )
                             .collect::<Vec<_>>()
                     };
-
+                
                     return (target_path.clone(), Ok(paths.clone()));
                 }
                 // here we need to return the error and the kind of it

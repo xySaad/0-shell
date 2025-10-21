@@ -269,7 +269,7 @@ impl Entry {
                 // eprintln!("huunaaa :! {:?}", pointed_to.is_absolute());
                 // eprintln!("huunaaa : {:?}", path);
                 let mut path_pointed_to = if file_type == FileType::Symlink {
-                    let target =Entry::new(&path_result, &self.ls_config).unwrap();
+                    let target = Entry::new(&path_result, &self.ls_config).unwrap();
                     let mut colored_target = target.color_name(true);
                     let (_, _, suffix_target) = target.get_entry_type();
                     colored_target.push(suffix_target);

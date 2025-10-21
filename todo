@@ -17,3 +17,18 @@ handle the (commands put on file instead of a directory) -> Done
 // there is a problem in the time
 // there is a t and s (that need to be handled for the the execute)
 //  implements the display trait for the vec<PathBuf>  done 
+
+
+
+
+
+
+
+
+
+///////////////////////////
+
+case ->   ls -l /bin
+case -> when adding the suffixes they must follow the target til having the correct type 
+
+

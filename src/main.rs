@@ -2,7 +2,6 @@ use crate::cli::read_input;
 mod cli;
 mod cmd;
 mod compiler;
-mod utils;
 
 fn main() {
     // welcome func
@@ -12,3 +11,5 @@ fn main() {
 
     read_input()
 }
+
+

@@ -6,7 +6,6 @@ use super::{ entry::{ Entry }, ls_config::{ LsConfig } };
 #[derive(Debug, Clone)]
 pub struct Entries {
     pub entries: Vec<Vec<String>>,
-    ls_config: LsConfig,
     pub total: u64,
 }
 
@@ -19,14 +18,14 @@ impl Entries {
             match to_entry {
                 Ok(mut valid_entry) => {
                     entries.push(valid_entry.as_array());
-                    total += valid_entry.blocks_count;
+                    total += valid_entry.num_blocks;
                 }
                 Err(invalid_entry) => {
                     eprintln!("Error : {}", invalid_entry);
                 }
             }
         }
-        Self { entries: entries, ls_config: ls_config.clone(), total: total / 2 }
+        Self { entries: entries, total: total / 2 }
     }
 }
 
@@ -46,7 +45,7 @@ impl fmt::Display for Entries {
             }
             vec_max.push(max);
         }
-        // eprintln!("{:?}", vec_max);
+        // eprintln!(" hnaa: {:?}", vec_max);
 
         // we need to find the max for each field
         for j in 0..self.entries.len() {

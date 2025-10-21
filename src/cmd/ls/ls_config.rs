@@ -4,7 +4,7 @@ use std::io::{ ErrorKind };
 use std::fs::{ self };
 use std::cell::RefCell;
 
-use super::{ entries::{ Entries }, entry::{ FileTypeEnum, Entry } };
+use super::{ entries::{ Entries }, entry::{ FileType, Entry } };
 
 #[derive(Debug, Eq, Clone, PartialEq)]
 pub struct LsConfig {
@@ -96,7 +96,7 @@ impl LsConfig {
 
         for (target_path, resulted_entry) in read_target_path(self) {
             let is_directory = match Entry::new(&Path::new(&target_path).to_path_buf(), self) {
-                Ok(valid_entry) => valid_entry.file_type == FileTypeEnum::Directory,
+                Ok(valid_entry) => valid_entry.file_type == FileType::Directory,
                 Err(_) => false,
             };
             match resulted_entry {
@@ -108,7 +108,7 @@ impl LsConfig {
                     {
                         println!("{}:", target_path);
                     }
-                    if is_directory {
+                    if is_directory && self.l_flag_set{
                         println!("total {}", entries.total);
                     }
                     println!("{}", entries);
@@ -128,6 +128,7 @@ impl LsConfig {
                     }
                 }
             }
+        
         }
     }
 }

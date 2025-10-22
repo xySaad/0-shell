@@ -1,11 +1,9 @@
 use std::process::exit;
 
-use libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, c_int, close, dup2, fork, waitpid};
+use libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, c_int, close, fork, waitpid};
 
-use crate::{
-    cmd::{clear::clear, *},
-    compiler::interpreter::Command,
-};
+use crate::cmd::{clear::clear, *};
+use crate::compiler::command::Command;
 
 // forks a command and returns exit status
 pub fn run_command(cmd: Command) -> i32 {
@@ -27,6 +25,7 @@ pub fn run_command(cmd: Command) -> i32 {
         let exit_status = match name.as_str() {
             "echo" => echo(args),
             "cp" => cp::cp(args),
+            "mkdir" => mkdir::mkdir(args),
             "exit" => exit(0),
             "clear" => clear(),
             _ => {

@@ -1,3 +1,4 @@
+pub mod clear;
 pub mod cp;
 pub mod echo;
 pub mod mkdir;

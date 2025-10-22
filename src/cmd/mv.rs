@@ -7,20 +7,24 @@ fn move_one(source: &Path, dest: &Path) -> bool {
         return false;
     }
 
-    if dest.exists() && dest.is_dir() {
+    // Prevent overwriting a directory with a non-directory
+    if dest.exists() && dest.is_dir() && !source.is_dir() {
         eprintln!("mv: cannot overwrite directory '{}' with non-directory", dest.display());
         return false;
+    }
+
+    // Remove existing file at destination (mimics mv's overwrite behavior)
+    if dest.exists() && !dest.is_dir() {
+        if let Err(e) = fs::remove_file(dest) {
+            eprintln!("mv: cannot remove '{}': {}", dest.display(), e);
+            return false;
+        }
     }
 
     match fs::rename(source, dest) {
         Ok(_) => true,
         Err(e) => {
-            eprintln!(
-                "mv: cannot move '{}' to '{}': {}",
-                source.display(),
-                dest.display(),
-                e
-            );
+            eprintln!("mv: cannot move '{}' to '{}': {}", source.display(), dest.display(), e);
             false
         }
     }
@@ -36,17 +40,21 @@ pub fn mv(args: &[String]) -> i32 {
         return 1;
     }
 
-    let dest = Path::new(args.last().unwrap());
+    let dest = Path::new(&args[args.len() - 1]);
     let sources = &args[..args.len() - 1];
     let mut all_ok = true;
 
-    // Case 1: one source, dest not necessarily a directory
-    if sources.len() == 1 && !dest.is_dir() {
+    // Case 1: One source, dest not necessarily a directory
+    if sources.len() == 1 {
         let source = Path::new(&sources[0]);
+        if dest.is_dir() {
+            let dest_file = dest.join(source.file_name().unwrap_or_default());
+            return if move_one(source, &dest_file) { 0 } else { 1 };
+        }
         return if move_one(source, dest) { 0 } else { 1 };
     }
 
-    // Case 2: multiple sources (or dest is dir)
+    // Case 2: Multiple sources, dest must be a directory
     if !dest.is_dir() {
         eprintln!("mv: target '{}' is not a directory", dest.display());
         return 1;
@@ -55,7 +63,7 @@ pub fn mv(args: &[String]) -> i32 {
     for src_str in sources {
         let source = Path::new(src_str);
         let Some(name) = source.file_name() else {
-            eprintln!("mv: invalid source name '{}'", source.display());
+            eprintln!("mv: invalid source path '{}'", source.display());
             all_ok = false;
             continue;
         };

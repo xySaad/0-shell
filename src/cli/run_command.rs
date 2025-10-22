@@ -25,6 +25,7 @@ pub fn run_command(cmd: Command) -> i32 {
             "echo" => echo(args),
             "cp" => cp::cp(args),
             "mkdir" => mkdir::mkdir(args),
+            "cat" => cat::cat(args),
             "exit" => exit(0),
             _ => {
                 eprintln!("Command '{}' not found", name);

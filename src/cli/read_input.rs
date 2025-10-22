@@ -31,7 +31,7 @@ pub fn read_input() {
             continue;
         }
 
-        let _exit_status = run_command(command);
+        let exit_status = run_command(command);
         let _ = cli::print("$ ");
     }
 }

@@ -1,15 +1,15 @@
-use chrono::{DateTime, Datelike, Duration, Local, TimeZone, Utc};
+use chrono::{ DateTime, Datelike, Duration, Local, TimeZone, Utc };
 use chrono_tz::Africa::Casablanca;
 use colored::Colorize;
-use libc::{major, minor};
-use std::fs::{self, Metadata};
-use std::io::{self, ErrorKind};
+use libc::{ major, minor };
+use std::fs::{ self, Metadata };
+use std::io::{ self, ErrorKind };
 use std::os::linux::fs::MetadataExt as LinuxMetadataExt;
-use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
-use std::path::{Path, PathBuf};
-use users::{get_group_by_gid, get_user_by_uid};
+use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
+use std::path::{ Path, PathBuf };
+use users::{ get_group_by_gid, get_user_by_uid };
 
-use super::{ls_config::LsConfig, utils::is_broken_link};
+use super::{ ls_config::LsConfig, utils::is_broken_link };
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum FileType {
@@ -28,7 +28,9 @@ pub struct Entry {
     pub metadata: Metadata,
     pub ls_config: LsConfig,
     pub path: PathBuf,
-    
+    pub symlink_target_path: Option<PathBuf>,
+    pub target_metadata: Option<Metadata>,
+
     // pub symlink_path : Option<PathBuf>,
 }
 
@@ -36,22 +38,56 @@ impl Entry {
     pub fn new(path: &PathBuf, ls_config: &LsConfig) -> Option<Self> {
         let metadata = match fs::symlink_metadata(path) {
             Ok(some_metadata) => some_metadata,
-            Err(e) => {
+            Err(_) => {
                 return None;
             }
         };
+        let mut symlink_target_path: Option<PathBuf> = None;
+        let mut target_metadata: Option<Metadata> = None;
 
+        if metadata.file_type().is_symlink() {
+            match fs::read_link(path) {
+                Ok(target_path) => {
+                    let resolved_target_path = if target_path.is_absolute() {
+                        target_path.clone()
+                    } else {
+                        path.parent()
+                            .unwrap_or_else(|| Path::new(""))
+                            .join(&target_path)
+                    };
+                    symlink_target_path = Some(resolved_target_path);
+                    // we need to use metadata to follow the link to the inner target ;)
+                    match fs::metadata(path) {
+                        Ok(some_metadata) => {
+                            target_metadata = Some(some_metadata);
+                        }
+                        Err(_) => {}
+                    };
+                }
+                Err(_) => {}
+            };
+        }
         Some(Self {
             metadata: metadata.clone(),
             ls_config: ls_config.clone(),
             path: path.clone(),
+            symlink_target_path: symlink_target_path,
+            target_metadata: target_metadata,
         })
     }
 
     pub fn as_array(&mut self) -> Vec<String> {
-        let mut file_name = self.color_name(false);
+        let mut file_name = self.color_name();
+        if self.ls_config.l_flag_set {
+            if self.symlink_target_path.is_some() {
+                file_name.push_str(" -> ");
+                file_name.push_str(
+                    &self.symlink_target_path.clone().unwrap().to_string_lossy().to_string()
+                );
+            }
+        }
         if self.ls_config.f_flag_set {
-            file_name = self.append_file_type_indicator();
+            file_name.push(self.append_file_type_indicator());
         }
 
         if !self.ls_config.l_flag_set {
@@ -68,12 +104,12 @@ impl Entry {
             major.clone(),
             minor.clone(),
             self.get_date(),
-            file_name,
+            file_name
         ]
     }
 
     fn get_size(&self) -> (String, String) {
-        let (file_type, _, _) = self.get_entry_type();
+        let (file_type, _, _) = Self::get_entry_type(&self.metadata.clone());
         if file_type == FileType::CharDevice || file_type == FileType::BlockDevice {
             let rdev = self.metadata.rdev();
 
@@ -87,10 +123,7 @@ impl Entry {
         ("".to_string(), self.metadata.size().to_string())
     }
 
-    fn get_entry_name(&self, is_whole_path: bool) -> String {
-        if is_whole_path {
-            return self.path.to_string_lossy().to_string();
-        }
+    fn get_entry_name(&self) -> String {
         if self.path.to_string_lossy().to_string().ends_with("..") {
             "..".to_string()
         } else if self.path.to_string_lossy().to_string().ends_with(".") {
@@ -103,18 +136,19 @@ impl Entry {
         }
     }
 
-    fn color_name(&self, is_whole_path: bool) -> String {
-        let (entry_type, _, _) = self.get_entry_type();
-        let result = self.get_entry_name(is_whole_path);
+    fn color_name(&self) -> String {
+        let (entry_type, _, _) = Self::get_entry_type(&self.metadata.clone());
+        let result = self.get_entry_name();
         let colored_entry = match true {
             _ if entry_type == FileType::Executable => format!("{}", result.bold().green()),
 
             _ if entry_type == FileType::Directory => format!("{}", result.blue().bold()),
 
-            _ if entry_type == FileType::BlockDevice
-                || entry_type == FileType::CharDevice
-                || entry_type == FileType::NamedPipe =>
-            {
+            _ if
+                entry_type == FileType::BlockDevice ||
+                entry_type == FileType::CharDevice ||
+                entry_type == FileType::NamedPipe
+            => {
                 format!("{}", result.bold().yellow())
             }
 
@@ -127,19 +161,16 @@ impl Entry {
 
         colored_entry
     }
-    pub fn get_entry_type(&self) -> (FileType, char, char) {
-        let is_executable = (self.metadata.permissions().mode() & 0o111) != 0;
+    pub fn get_entry_type(metadata: &Metadata) -> (FileType, char, char) {
+        let is_executable = (metadata.permissions().mode() & 0o111) != 0;
         match true {
-            _ if self.metadata.file_type().is_dir() => (FileType::Directory, 'd', '/'),
-            _ if self.metadata.file_type().is_symlink() && is_broken_link(&self.path) => {
-                (FileType::BrokenSymlink, 'l', '@')
-            }
-            _ if self.metadata.file_type().is_symlink() => (FileType::Symlink, 'l', '@'),
-            _ if self.metadata.file_type().is_block_device() => (FileType::BlockDevice, 'b', ' '),
-            _ if self.metadata.file_type().is_char_device() => (FileType::CharDevice, 'c', ' '),
-            _ if self.metadata.file_type().is_fifo() => (FileType::NamedPipe, 'p', '|'),
-            _ if self.metadata.file_type().is_socket() => (FileType::Socket, 's', '='),
-            _ if self.metadata.file_type().is_file() && is_executable => {
+            _ if metadata.file_type().is_dir() => (FileType::Directory, 'd', '/'),
+            _ if metadata.file_type().is_symlink() => (FileType::Symlink, 'l', '@'),
+            _ if metadata.file_type().is_block_device() => (FileType::BlockDevice, 'b', ' '),
+            _ if metadata.file_type().is_char_device() => (FileType::CharDevice, 'c', ' '),
+            _ if metadata.file_type().is_fifo() => (FileType::NamedPipe, 'p', '|'),
+            _ if metadata.file_type().is_socket() => (FileType::Socket, 's', '='),
+            _ if metadata.file_type().is_file() && is_executable => {
                 (FileType::Executable, '-', '*')
             }
             _ => (FileType::Regular, '-', ' '),
@@ -164,30 +195,26 @@ impl Entry {
         let datetime = dt.unwrap().with_timezone(&Casablanca);
         let current_date_time = Utc::now().with_timezone(&Casablanca);
 
-        // Calculate difference in time
         let six_months_ago = current_date_time - Duration::days(183);
         let six_months_future = current_date_time + Duration::days(183);
 
-        // Show time if modification date is within +/- 6 months of current date
         if datetime > six_months_ago && datetime < six_months_future {
             return datetime.format("%b %e %H:%M").to_string();
         }
 
-        return datetime.format("%b %e  %Y").to_string();
+        datetime.format("%b %e  %Y").to_string()
     }
 
     fn get_permissions(&self) -> String {
-        let (_, symbol, _) = self.get_entry_type();
+        let (_, symbol, _) = Self::get_entry_type(&self.metadata.clone());
         let mode = self.metadata.permissions().mode();
 
-        
         let is_mode = |bit| (mode & bit) != 0;
 
-       
         let owner_read = if is_mode(0o400) { 'r' } else { '-' };
         let owner_write = if is_mode(0o200) { 'w' } else { '-' };
         let owner_exec = if is_mode(0o100) {
-            if is_mode(0o4000) { 's' } else { 'x' } 
+            if is_mode(0o4000) { 's' } else { 'x' }
         } else {
             if is_mode(0o4000) { 'S' } else { '-' }
         };
@@ -196,9 +223,9 @@ impl Entry {
         let group_read = if is_mode(0o040) { 'r' } else { '-' };
         let group_write = if is_mode(0o020) { 'w' } else { '-' };
         let group_exec = if is_mode(0o010) {
-            if is_mode(0o2000) { 's' } else { 'x' } 
+            if is_mode(0o2000) { 's' } else { 'x' }
         } else {
-            if is_mode(0o2000) { 'S' } else { '-' } 
+            if is_mode(0o2000) { 'S' } else { '-' }
         };
 
         let other_read = if is_mode(0o004) { 'r' } else { '-' };
@@ -218,48 +245,24 @@ impl Entry {
             group_exec,
             other_read,
             other_write,
-            other_exec,
+            other_exec
         ];
 
         symbol.to_string() + &permissions.iter().collect::<String>()
     }
 
-    pub fn append_file_type_indicator(&self) -> String {
-        let (file_type, _, suffix) = self.get_entry_type();
-        let mut colored_name = self.color_name(false);
-
-        if self.ls_config.l_flag_set
-            && (file_type == FileType::Symlink || file_type == FileType::BrokenSymlink)
-        {
-            let pointed_to = if let Ok(pointed_to) = self.path.read_link() {
-                let path_result = if !pointed_to.is_absolute() {
-                    Path::new(self.path.parent().unwrap())
-                        .join(&pointed_to.to_string_lossy().to_string())
-                } else {
-                    pointed_to.clone()
-                };
-                // eprintln!("huunaaa :! {:?}", pointed_to.is_absolute());
-                // eprintln!("huunaaa : {:?}", path);
-                let path_pointed_to = if file_type == FileType::Symlink {
-                    let target = Entry::new(&path_result, &self.ls_config).unwrap();
-                    let mut colored_target = target.color_name(true);
-                    let (_, _, suffix_target) = target.get_entry_type();
-                    colored_target.push(suffix_target);
-                    colored_target
-                } else {
-                    pointed_to.to_string_lossy().to_string()
-                };
-
-                path_pointed_to
-            } else {
-                "".to_string()
-            };
-            colored_name.push_str(" -> ");
-            colored_name.push_str(&pointed_to);
-            return colored_name;
+    pub fn append_file_type_indicator(&self) -> char {
+        if self.ls_config.l_flag_set {
+            if Self::get_entry_type(&self.metadata).0 == FileType::Symlink {
+                if self.target_metadata.is_some() {
+                    let (_, _, suffix) = Self::get_entry_type(
+                        &self.target_metadata.clone().unwrap()
+                    );
+                    return suffix;
+                } 
+            }
         }
-
-        colored_name.push(suffix);
-        colored_name
+        let (_, _, suffix) = Self::get_entry_type(&self.metadata);
+        suffix
     }
 }

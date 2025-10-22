@@ -87,7 +87,7 @@ impl LsConfig {
         });
         // exists won't work here because it's part of metadata 
         self.target_paths.retain(|target_path| { fs::symlink_metadata(target_path).is_ok() });
-        self.target_paths.sort_by(|a, b| a.cmp(&b));
+        self.target_paths.sort_by(|a, b| a.to_ascii_lowercase().cmp(&b.to_ascii_lowercase()));
     }
 
     pub fn print_ls(&mut self) {
@@ -166,8 +166,9 @@ pub fn read_target_path(
                             .unwrap()
                             .to_string_lossy()
                             .to_string();
+                            
                         let entry_b = binding_b.strip_prefix(".").unwrap_or(&binding_b);
-                        entry_a.cmp(&entry_b)
+                        entry_a.to_ascii_lowercase().cmp(&entry_b.to_ascii_lowercase())
                     });
 
                     let mut paths = if ls_config.a_flag_set {

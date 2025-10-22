@@ -31,3 +31,5 @@ pub fn is_broken_link(path: &PathBuf) -> bool {
         Err(_) => true,
     }
 }
+
+

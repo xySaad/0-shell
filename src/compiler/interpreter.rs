@@ -254,14 +254,14 @@ impl<T: Fn() -> String> Interpreter<T> {
             let mut command = self.parse_sequence(&mut iter);
             let p = pipe();
             if p.is_err() {
-                let exit_status = run_command(command);
+                let _exit_status = run_command(command);
                 continue;
             }
 
             // unwrap pipe on success, and redirect command output to it
             let (mut r, w) = p.unwrap();
             command.io_streams.stdout.push(Box::new(w));
-            let exit_status = run_command(command);
+            let _exit_status = run_command(command);
 
             // read redirected output
             let mut line = String::new();

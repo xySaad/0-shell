@@ -1,4 +1,4 @@
-use std::env;
+use std::env::{set_var, current_dir, set_current_dir, var};
 use std::path::{Path, PathBuf};
 
 // to do //
@@ -6,16 +6,15 @@ use std::path::{Path, PathBuf};
 // should handle "////"
 
 pub fn cd(args: &[String]) -> i32 {
-    // println!("arguments: {:?}", args);
-    println!("befor: {:?}", env::current_dir());
+    println!("befor: {:?}", current_dir());
 
     if args.len() > 1 {
         println!("0-shell: cd: too many arguments");
         return 1;
     }
 
-    let current_pwd = env::var("PWD").unwrap_or_else(|_| {
-        env::current_dir()
+    let current_pwd = var("PWD").unwrap_or_else(|_| {
+        current_dir()
             .map(|p| p.display().to_string())
             .unwrap_or_else(|_| String::from("/"))
     });
@@ -28,21 +27,42 @@ pub fn cd(args: &[String]) -> i32 {
 
     match target.as_str() {
         "~" => {
-            let home = env::var("HOME").unwrap_or_else(|_| String::from("/"));
-            change_dir(&home, &current_pwd);
+            let home = var("HOME").unwrap_or_else(|_| String::from("/"));
+
+            match change_dir(&home, &current_pwd) {
+                Ok(_) => (),
+                Err(e) => {
+                    eprintln!("{}", e);
+                    return 1;
+                }
+            };
         }
 
         "-" => {
-            let oldpwd = env::var("OLDPWD").unwrap_or_else(|_| current_pwd.clone());
-            change_dir(&oldpwd, &current_pwd);
-            println!("{}", oldpwd);
+            let oldpwd = var("OLDPWD").unwrap_or_else(|_| current_pwd.clone());
+
+            match change_dir(&oldpwd, &current_pwd) {
+                Ok(_) => {
+                    println!("{}", oldpwd);
+                },
+                Err(e) => {
+                    eprintln!("{}", e);
+                    return 1;
+                }
+            };
         }
 
         ".." => {
             let mut logical = PathBuf::from(&current_pwd);
             logical.pop(); // remove last component logically (don’t resolve symlink)
             let new_path = logical.display().to_string();
-            change_dir(&new_path, &current_pwd);
+            match change_dir(&new_path, &current_pwd) {
+                Ok(_) => (),
+                Err(e) => {
+                    eprintln!("{}", e);
+                    return 1;
+                }
+            };
         }
 
         other => {
@@ -52,29 +72,18 @@ pub fn cd(args: &[String]) -> i32 {
             } else {
                 pwd.join(other)
             };
-            change_dir(abs_path.to_str().unwrap(), &current_pwd);
+            match change_dir(abs_path.to_str().unwrap(), &current_pwd) {
+                Ok(_) => (),
+                Err(e) => {
+                    eprintln!("{}", e);
+                    return 1;
+                }
+            };
         }
     };
 
-    println!("after: {:?}", env::current_dir());
+    println!("after: {:?}", current_dir());
     0
-
-    // // path = "".to_string(); // handle
-    // // path = "~".to_string(); // handle in parser +++
-    // // path = "/".to_string(); // simple path +++
-    // // path = "..".to_string(); // handle ////
-    // // path = ".".to_string(); // do nothing
-    // // path = "-".to_string(); // enverments variable ///////
-    // // path = "my home".to_string(); // simple path //
-    // // path = "home/src".to_string(); // simple path //
-    // // path = "file.txt".to_string();
-    // // path = ".home".to_string(); // hiden file like folder
-    // // path = "/root".to_string();
-    // // path = "/home".to_string();
-    // // path = "~/home".to_string(); // handle in parser +++
-    // // path = "./home".to_string();
-    // // path = "../home".to_string();
-    // // path = "../../home".to_string();
 }
 
 fn change_dir(target: &str, oldpwd: &str) -> Result<(), String> {
@@ -82,16 +91,25 @@ fn change_dir(target: &str, oldpwd: &str) -> Result<(), String> {
     if !path.exists() {
         return Err(format!("cd: {}: No such directory", target));
     }
-    //  else {
-    //     Path::new("/home/amellagu/.local/share/Trash/files/")
-    // }
 
-    if let Err(e) = env::set_current_dir(path) {
-        return Err(format!("cd: {}: {}", target, e));
-    }
+    match set_current_dir(path) {
+        Ok(_) => {
+            println!("Succes");
+        },
+        Err(e) => {
+            println!("Error: {}", e);
+            // // let ee = e.split("(")[0];
+            // return Err(format!("cd: {}: {}", target, e));
+            return Err("eeeeeeeeeeeeeeee".to_string());
+        }
+    };
 
-    unsafe { env::set_var("OLDPWD", oldpwd) };
-    unsafe { env::set_var("PWD", normalize_path(&PathBuf::from(target))) };
+    unsafe {
+        println!("old: {}, new: {}", oldpwd, normalize_path(&PathBuf::from(target)));
+        set_var("OLDPWD", oldpwd);
+        set_var("PWD", normalize_path(&PathBuf::from(target)));
+    };
+
     Ok(())
 }
 
@@ -128,3 +146,21 @@ fn normalize_path(path: &Path) -> String {
     }
     res
 }
+
+
+// // path = "".to_string(); // handle
+// // path = "~".to_string(); // handle in parser +++
+// // path = "/".to_string(); // simple path +++
+// // path = "..".to_string(); // handle ////
+// // path = ".".to_string(); // do nothing
+// // path = "-".to_string(); // enverments variable ///////
+// // path = "my home".to_string(); // simple path //
+// // path = "home/src".to_string(); // simple path //
+// // path = "file.txt".to_string();
+// // path = ".home".to_string(); // hiden file like folder
+// // path = "/root".to_string();
+// // path = "/home".to_string();
+// // path = "~/home".to_string(); // handle in parser +++
+// // path = "./home".to_string();
+// // path = "../home".to_string();
+// // path = "../../home".to_string();

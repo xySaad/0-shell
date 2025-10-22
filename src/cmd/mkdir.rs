@@ -1,6 +1,5 @@
-use std::fs;
-
 use crate::utils::error::strerror;
+use std::fs;
 
 pub fn mkdir(args: &[String]) -> i32 {
     if args.is_empty() {

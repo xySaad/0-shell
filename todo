@@ -32,3 +32,9 @@ case ->   ls -l /bin
 case -> when adding the suffixes they must follow the target til having the correct type 
 
 
+/// 
+
+case ls -l /bin -> show the file only 
+case ls -l /
+
+

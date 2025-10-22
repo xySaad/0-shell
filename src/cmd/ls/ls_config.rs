@@ -96,9 +96,10 @@ impl LsConfig {
 
         for (target_path, resulted_entry) in read_target_path(self) {
             let is_directory = match Entry::new(&Path::new(&target_path).to_path_buf(), self) {
-                Ok(valid_entry) => valid_entry.get_entry_type().0 == FileType::Directory,
-                Err(_) => false,
+                Some(valid_entry) => valid_entry.get_entry_type().0 == FileType::Directory,
+                None => false,
             };
+            //println!("{:?}", resulted_entry); 
             match resulted_entry {
                 Ok(entries_vec) => {
                     let entries = Entries::new(&entries_vec, self);

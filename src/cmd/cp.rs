@@ -74,7 +74,7 @@ fn perform_copy(src: &str, target: &str) -> i32 {
     };
 
     if src_meta.is_dir() {
-        eprintln!("cp: -r not specified; omitting directory '{src}'",);
+        eprintln!("cp: recursive copy (-r) not implemented; omitting directory '{src}'",);
         return 1;
     }
 

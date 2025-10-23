@@ -82,7 +82,7 @@ impl fmt::Display for Entries {
                 // case of numbers to (from the right)
                 if k == 1 || k == 4 || k == 5 {
                     let formatted = format!("{0:>1$}", self.entries[j][k], value);
-                    write!(f, "{}", formatted)?;
+                    write!(f, "{} ", formatted)?;
                     // from the left
                 } else {
                     let formatted = format!("{0:<1$}", self.entries[j][k], value);

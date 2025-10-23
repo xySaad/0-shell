@@ -1,8 +1,8 @@
-use super::{entry::Entry, ls_config::LsConfig};
+use super::{ entry::Entry, ls_config::LsConfig };
 use std::io::ErrorKind;
 use std::os::linux::fs::MetadataExt;
 use std::path::PathBuf;
-use std::{fmt, fs};
+use std::{ fmt, fs };
 // seems a good idea
 #[derive(Debug, Clone)]
 pub struct Entries {
@@ -15,8 +15,8 @@ impl Entries {
         let mut entries = Vec::new();
         let mut total = 0;
         for path in paths {
-            let to_entry = Entry::new(path, ls_config);
-            match to_entry {
+            // as we have access to the ls_config we can mutate the value of the status code
+            match Entry::new(path, ls_config) {
                 Some(mut valid_entry) => {
                     entries.push(valid_entry.as_array());
                     total += valid_entry.metadata.st_blocks();
@@ -35,17 +35,19 @@ impl Entries {
                                     "ls: cannot access '{}': Permission denied",
                                     path.to_string_lossy()
                                 );
+                                let status_code = ls_config.status_code.borrow();
+                                if *status_code != 2 {
+                                    *ls_config.status_code.borrow_mut() = 1;
+                                }
                             } else {
+                                 let status_code = ls_config.status_code.borrow();
+                                if *status_code != 2 {
+                                    *ls_config.status_code.borrow_mut() = 1;
+                                }
                                 eprintln!("{}", e);
                             }
                         }
                     };
-                    let filename = path
-                        .file_name()
-                        .map(|os_str| os_str.to_string_lossy().to_string()) // convert OsStr to String
-                        .unwrap_or_else(|| path.to_string_lossy().to_string()); // fallback to full path string if no file name
-
-                    entries.push(vec![filename]);
                 }
             }
         }
@@ -77,16 +79,25 @@ impl fmt::Display for Entries {
 
         // we need to find the max for each field
         for j in 0..self.entries.len() {
+            //eprintln!("entries : {:?}", self.entries);
             for k in 0..self.entries[j].len() {
                 let value = vec_max[k];
                 // case of numbers to (from the right)
                 if k == 1 || k == 4 || k == 5 {
+                    // eprintln!("hunaaa k : {}", k );
                     let formatted = format!("{0:>1$}", self.entries[j][k], value);
-                    write!(f, "{} ", formatted)?;
+                    write!(f, "{formatted} ")?;
+                    // write!(f, " ")?;
                     // from the left
+                } else if k == self.entries[j].len() - 1 {
+                    write!(f, "{}", self.entries[j][k].trim())?;
                 } else {
                     let formatted = format!("{0:<1$}", self.entries[j][k], value);
-                    write!(f, "{} ", formatted)?;
+                    write!(f, "{}", formatted)?;
+                    if self.entries[j][4] == "" && k == 3 {
+                        continue;
+                    }
+                    write!(f, " ")?;
                 }
             }
             if j != self.entries.len() - 1 {

@@ -11,7 +11,6 @@ pub struct LsConfig {
     pub a_flag_set: bool,
     pub l_flag_set: bool,
     pub f_flag_set: bool,
-    default_target_path: String,
     pub target_paths: Vec<String>,
     pub status_code: RefCell<i32>,
     flags: Vec<String>,
@@ -23,7 +22,7 @@ impl LsConfig {
             a_flag_set: false,
             l_flag_set: false,
             f_flag_set: false,
-            default_target_path: ".".to_string(),
+            
             target_paths: args
                 .iter()
                 .filter(|a| !a.starts_with('-'))
@@ -62,7 +61,7 @@ impl LsConfig {
         // if the target_paths is 0 push the default to targets_paths
 
         if self.target_paths.len() == 0 {
-            self.target_paths.push(self.default_target_path.clone());
+            self.target_paths.push(".".to_string());
         }
     }
 

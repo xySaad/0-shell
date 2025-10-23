@@ -18,6 +18,7 @@ use std::{
     os::fd::{AsRawFd, FromRawFd},
     process::exit,
     thread::{JoinHandle, spawn},
+    collections::HashMap
 };
 
 pub struct IoStreams {
@@ -152,6 +153,7 @@ impl Command {
         }
     }
 }
+
 impl Default for Command {
     fn default() -> Self {
         Self {
@@ -254,14 +256,14 @@ impl<T: Fn() -> String> Interpreter<T> {
             let mut command = self.parse_sequence(&mut iter);
             let p = pipe();
             if p.is_err() {
-                let exit_status = run_command(command);
+                let _exit_status = run_command(command);
                 continue;
             }
 
             // unwrap pipe on success, and redirect command output to it
             let (mut r, w) = p.unwrap();
             command.io_streams.stdout.push(Box::new(w));
-            let exit_status = run_command(command);
+            let _exit_status = run_command(command);
 
             // read redirected output
             let mut line = String::new();
@@ -290,5 +292,34 @@ impl<T: Fn() -> String> Interpreter<T> {
             Node::Delimiter => "".into(),
             Node::EOF => "\0".into(),
         }
+    }
+}
+
+
+// // cmd: printenv --> print all vars at env \\ \\
+pub struct ShellEnv {
+    vars: HashMap<String, String>,
+}
+
+impl ShellEnv {
+    pub fn new() -> Self {
+        let mut vars = HashMap::new();
+        // Initialize with current process env
+        for (k, v) in std::env::vars() {
+            vars.insert(k, v);
+        }
+        Self { vars }
+    }
+
+    pub fn get(&self, key: &str) -> Option<&String> {
+        self.vars.get(key)
+    }
+
+    pub fn set(&mut self, key: &str, value: &str) {
+        self.vars.insert(key.to_string(), value.to_string());
+    }
+
+    pub fn unset(&mut self, key: &str) {
+        self.vars.remove(key);
     }
 }

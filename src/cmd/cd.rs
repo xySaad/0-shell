@@ -1,23 +1,20 @@
-use std::env::{set_var, current_dir, set_current_dir, var};
+use std::env::{set_current_dir};
 use std::path::{Path, PathBuf};
+use crate::cli::Shell;
 
 // to do //
 // should handle error output by message error !!
 // should handle "////"
 
-pub fn cd(args: &[String]) -> i32 {
-    println!("befor: {:?}", current_dir());
+pub fn cd(args: &[String], shell: &mut Shell) -> i32 {
+    // println!("befor: {:?}", current_dir());
 
     if args.len() > 1 {
         println!("0-shell: cd: too many arguments");
         return 1;
     }
 
-    let current_pwd = var("PWD").unwrap_or_else(|_| {
-        current_dir()
-            .map(|p| p.display().to_string())
-            .unwrap_or_else(|_| String::from("/"))
-    });
+    let current_pwd = shell.env.get("PWD").cloned().unwrap_or("/".to_string());
 
     let target = if args.is_empty() || args[0] == "--" {
         "~".to_string()
@@ -27,9 +24,9 @@ pub fn cd(args: &[String]) -> i32 {
 
     match target.as_str() {
         "~" => {
-            let home = var("HOME").unwrap_or_else(|_| String::from("/"));
+            let home  = shell.env.get("HOME").cloned().unwrap_or("/".to_string());
 
-            match change_dir(&home, &current_pwd) {
+            match change_dir(&home, &current_pwd, shell) {
                 Ok(_) => (),
                 Err(e) => {
                     eprintln!("{}", e);
@@ -39,9 +36,9 @@ pub fn cd(args: &[String]) -> i32 {
         }
 
         "-" => {
-            let oldpwd = var("OLDPWD").unwrap_or_else(|_| current_pwd.clone());
+            let oldpwd = shell.env.get("OLDPWD").cloned().unwrap_or(current_pwd.clone());
 
-            match change_dir(&oldpwd, &current_pwd) {
+            match change_dir(&oldpwd, &current_pwd, shell) {
                 Ok(_) => {
                     println!("{}", oldpwd);
                 },
@@ -56,7 +53,7 @@ pub fn cd(args: &[String]) -> i32 {
             let mut logical = PathBuf::from(&current_pwd);
             logical.pop(); // remove last component logically (don’t resolve symlink)
             let new_path = logical.display().to_string();
-            match change_dir(&new_path, &current_pwd) {
+            match change_dir(&new_path, &current_pwd, shell) {
                 Ok(_) => (),
                 Err(e) => {
                     eprintln!("{}", e);
@@ -72,7 +69,7 @@ pub fn cd(args: &[String]) -> i32 {
             } else {
                 pwd.join(other)
             };
-            match change_dir(abs_path.to_str().unwrap(), &current_pwd) {
+            match change_dir(abs_path.to_str().unwrap(), &current_pwd, shell) {
                 Ok(_) => (),
                 Err(e) => {
                     eprintln!("{}", e);
@@ -82,33 +79,28 @@ pub fn cd(args: &[String]) -> i32 {
         }
     };
 
-    println!("after: {:?}", current_dir());
+    // println!("after: {:?}", current_dir());
     0
 }
 
-fn change_dir(target: &str, oldpwd: &str) -> Result<(), String> {
+fn change_dir(target: &str, oldpwd: &str, shell: &mut Shell) -> Result<(), String> {
     let path = Path::new(target);
     if !path.exists() {
         return Err(format!("cd: {}: No such directory", target));
     }
-
+    println!("{:?}", path);
     match set_current_dir(path) {
         Ok(_) => {
             println!("Succes");
         },
         Err(e) => {
             println!("Error: {}", e);
-            // // let ee = e.split("(")[0];
-            // return Err(format!("cd: {}: {}", target, e));
             return Err("eeeeeeeeeeeeeeee".to_string());
         }
     };
 
-    unsafe {
-        println!("old: {}, new: {}", oldpwd, normalize_path(&PathBuf::from(target)));
-        set_var("OLDPWD", oldpwd);
-        set_var("PWD", normalize_path(&PathBuf::from(target)));
-    };
+    shell.env.set("OLDPWD", oldpwd);
+    shell.env.set("PWD", &normalize_path(&PathBuf::from(target)));
 
     Ok(())
 }

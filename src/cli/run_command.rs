@@ -2,17 +2,22 @@ use std::process::exit;
 
 use libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, c_int, close, dup2, fork, waitpid};
 
-// pub fn run_command(cmd: &str, args: &[String]) -> Result<String, String> {
-//     match cmd {
-//         "echo" => echo(args),
-//         "cp" => cp::cp(args),
-//         "cd" => cd::cd(args),
-//         "rm" => rm::rm(args),
-//         "pwd" => pwd::pwd(args),
-//         "exit" => process::exit(0),
-//         "clear" => Ok("\x1b[H\x1b[2J\x1b[3J".into()),
-//         _ => Err(format!("Command '{}' not found", cmd)),
-use crate::{cmd::*, compiler::interpreter::Command};
+use crate::{cmd::*, 
+    compiler::interpreter::Command,
+    compiler::interpreter::ShellEnv
+};
+
+pub struct Shell {
+    pub env: ShellEnv,
+}
+
+impl Shell {
+    pub fn new() -> Self {
+        Self {
+            env: ShellEnv::new(),
+        }
+    }
+}
 
 // forks a command and returns exit status
 pub fn run_command(cmd: Command) -> i32 {
@@ -28,15 +33,17 @@ pub fn run_command(cmd: Command) -> i32 {
         return 1;
     }
 
+    let mut shell = Shell::new();
+
     // child
     if pid == 0 {
         let handlers = io_streams.redirect();
         let exit_status = match name.as_str() {
             "echo" => echo(args),
             "cp" => cp::cp(args),
-            "cd" => cd::cd(args),
+            "cd" => cd::cd(args, &mut shell),
             "rm" => rm::rm(args),
-            "pwd" => pwd::pwd(args),
+            "pwd" => pwd::pwd(args, &shell),
             "exit" => exit(0),
             _ => {
                 eprintln!("Command '{}' not found", name);

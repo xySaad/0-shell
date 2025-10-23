@@ -1,15 +1,15 @@
-use chrono::{DateTime, Datelike, Duration, Local, TimeZone, Utc};
+use chrono::{ DateTime, Datelike, Duration, Local, TimeZone, Utc };
 use chrono_tz::Africa::Casablanca;
 use colored::Colorize;
-use libc::{major, minor};
-use std::fs::{self, Metadata};
-use std::io::{self, ErrorKind};
+use libc::{ major, minor };
+use std::fs::{ self, Metadata };
+use std::io::{ self, ErrorKind };
 use std::os::linux::fs::MetadataExt as LinuxMetadataExt;
-use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
-use std::path::{Path, PathBuf};
-use users::{get_group_by_gid, get_user_by_uid};
+use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
+use std::path::{ Path, PathBuf };
+use users::{ get_group_by_gid, get_user_by_uid };
 
-use super::{ls_config::LsConfig, utils::is_broken_link};
+use super::{ ls_config::LsConfig, utils::is_broken_link };
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum FileType {
@@ -28,7 +28,7 @@ pub struct Entry {
     pub metadata: Metadata,
     pub ls_config: LsConfig,
     pub path: PathBuf,
-    
+
     // pub symlink_path : Option<PathBuf>,
 }
 
@@ -68,7 +68,7 @@ impl Entry {
             major.clone(),
             minor.clone(),
             self.get_date(),
-            file_name,
+            file_name
         ]
     }
 
@@ -111,10 +111,11 @@ impl Entry {
 
             _ if entry_type == FileType::Directory => format!("{}", result.blue().bold()),
 
-            _ if entry_type == FileType::BlockDevice
-                || entry_type == FileType::CharDevice
-                || entry_type == FileType::NamedPipe =>
-            {
+            _ if
+                entry_type == FileType::BlockDevice ||
+                entry_type == FileType::CharDevice ||
+                entry_type == FileType::NamedPipe
+            => {
                 format!("{}", result.bold().yellow())
             }
 
@@ -180,14 +181,12 @@ impl Entry {
         let (_, symbol, _) = self.get_entry_type();
         let mode = self.metadata.permissions().mode();
 
-        
         let is_mode = |bit| (mode & bit) != 0;
 
-       
         let owner_read = if is_mode(0o400) { 'r' } else { '-' };
         let owner_write = if is_mode(0o200) { 'w' } else { '-' };
         let owner_exec = if is_mode(0o100) {
-            if is_mode(0o4000) { 's' } else { 'x' } 
+            if is_mode(0o4000) { 's' } else { 'x' }
         } else {
             if is_mode(0o4000) { 'S' } else { '-' }
         };
@@ -196,9 +195,9 @@ impl Entry {
         let group_read = if is_mode(0o040) { 'r' } else { '-' };
         let group_write = if is_mode(0o020) { 'w' } else { '-' };
         let group_exec = if is_mode(0o010) {
-            if is_mode(0o2000) { 's' } else { 'x' } 
+            if is_mode(0o2000) { 's' } else { 'x' }
         } else {
-            if is_mode(0o2000) { 'S' } else { '-' } 
+            if is_mode(0o2000) { 'S' } else { '-' }
         };
 
         let other_read = if is_mode(0o004) { 'r' } else { '-' };
@@ -218,23 +217,37 @@ impl Entry {
             group_exec,
             other_read,
             other_write,
-            other_exec,
+            other_exec
         ];
 
-        symbol.to_string() + &permissions.iter().collect::<String>()
+        let mut permissions = symbol.to_string() + &permissions.iter().collect::<String>();
+        let attr_len = unsafe {
+            libc::listxattr(
+                self.path.to_str().unwrap_or("").as_ptr() as *const _,
+                std::ptr::null_mut(),
+                0
+            )
+        };
+        if attr_len > 0 {
+            permissions.push('+');
+        }
+
+        permissions
     }
 
     pub fn append_file_type_indicator(&self) -> String {
         let (file_type, _, suffix) = self.get_entry_type();
         let mut colored_name = self.color_name(false);
 
-        if self.ls_config.l_flag_set
-            && (file_type == FileType::Symlink || file_type == FileType::BrokenSymlink)
+        if
+            self.ls_config.l_flag_set &&
+            (file_type == FileType::Symlink || file_type == FileType::BrokenSymlink)
         {
             let pointed_to = if let Ok(pointed_to) = self.path.read_link() {
                 let path_result = if !pointed_to.is_absolute() {
-                    Path::new(self.path.parent().unwrap())
-                        .join(&pointed_to.to_string_lossy().to_string())
+                    Path::new(self.path.parent().unwrap()).join(
+                        &pointed_to.to_string_lossy().to_string()
+                    )
                 } else {
                     pointed_to.clone()
                 };

@@ -85,7 +85,7 @@ impl LsConfig {
                 }
             }
         });
-        // exists won't work here because it's part of metadata 
+        // exists won't work here because it's part of metadata
         self.target_paths.retain(|target_path| { fs::symlink_metadata(target_path).is_ok() });
         self.target_paths.sort_by(|a, b| a.to_ascii_lowercase().cmp(&b.to_ascii_lowercase()));
     }
@@ -93,13 +93,13 @@ impl LsConfig {
     pub fn print_ls(&mut self) {
         self.parse();
         self.extract_valid_entries();
-
-        for (target_path, resulted_entry) in read_target_path(self) {
+        let mut iter = read_target_path(self).into_iter().peekable();
+        while let Some((target_path, resulted_entry)) = iter.peek() {
             let is_directory = match Entry::new(&Path::new(&target_path).to_path_buf(), self) {
                 Some(valid_entry) => valid_entry.get_entry_type().0 == FileType::Directory,
                 None => false,
             };
-            //println!("{:?}", resulted_entry); 
+            //println!("{:?}", resulted_entry);
             match resulted_entry {
                 Ok(entries_vec) => {
                     let entries = Entries::new(&entries_vec, self);
@@ -109,7 +109,7 @@ impl LsConfig {
                     {
                         println!("{}:", target_path);
                     }
-                    if is_directory && self.l_flag_set{
+                    if is_directory && self.l_flag_set {
                         println!("total {}", entries.total);
                     }
                     println!("{}", entries);
@@ -129,7 +129,11 @@ impl LsConfig {
                     }
                 }
             }
-        
+
+            iter.next();
+            if iter.peek().is_some() {
+                println!();
+            }
         }
     }
 }
@@ -139,7 +143,10 @@ pub fn read_target_path(
 ) -> impl Iterator<Item = (String, Result<Vec<PathBuf>, io::Error>)> {
     ls_config.target_paths.iter().map(|target_path| {
         let path = Path::new(target_path);
-        if path.is_dir() && !path.is_symlink() {
+        if
+            (path.is_dir() && !path.is_symlink()) ||
+            (path.is_symlink() && !ls_config.f_flag_set && !ls_config.l_flag_set)
+        {
             match fs::read_dir(target_path) {
                 Ok(entries) => {
                     let mut paths = Vec::new();
@@ -167,7 +174,7 @@ pub fn read_target_path(
                             .unwrap()
                             .to_string_lossy()
                             .to_string();
-                            
+
                         let entry_b = binding_b.strip_prefix(".").unwrap_or(&binding_b);
                         entry_a.to_ascii_lowercase().cmp(&entry_b.to_ascii_lowercase())
                     });
@@ -186,7 +193,7 @@ pub fn read_target_path(
                             )
                             .collect::<Vec<_>>()
                     };
-                
+
                     return (target_path.clone(), Ok(paths.clone()));
                 }
                 // here we need to return the error and the kind of it

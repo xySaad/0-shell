@@ -83,10 +83,6 @@ impl fmt::Display for Entries {
                 if k == 1 || k == 4 || k == 5 {
                     let formatted = format!("{0:>1$}", self.entries[j][k], value);
                     write!(f, "{}", formatted)?;
-                    // avoid the space between minor and major
-                    if k == 1 || k == 5 {
-                        write!(f, " ")?;
-                    }
                     // from the left
                 } else {
                     let formatted = format!("{0:<1$}", self.entries[j][k], value);

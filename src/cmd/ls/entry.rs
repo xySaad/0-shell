@@ -9,7 +9,7 @@ use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
 use std::path::{ Path, PathBuf };
 use users::{ get_group_by_gid, get_user_by_uid };
 
-use super::{ ls_config::LsConfig, utils::{ is_broken_link, apply_color } };
+use super::{  ls_config::LsConfig, utils::{ is_broken_link , apply_color } };
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum FileType {
@@ -124,6 +124,7 @@ impl Entry {
             major.clone(),
             minor.clone(),
             self.get_date(),
+            file_name
             file_name
         ]
     }
@@ -277,7 +278,19 @@ impl Entry {
             other_exec
         ];
 
-        symbol.to_string() + &permissions.iter().collect::<String>()
+        let mut permissions = symbol.to_string() + &permissions.iter().collect::<String>();
+        let attr_len = unsafe {
+            libc::listxattr(
+                self.path.to_str().unwrap_or("").as_ptr() as *const _,
+                std::ptr::null_mut(),
+                0
+            )
+        };
+        if attr_len > 0 {
+            permissions.push('+');
+        }
+
+        permissions
     }
 
     pub fn append_file_type_indicator(&self) -> char {

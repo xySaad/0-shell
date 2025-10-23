@@ -9,7 +9,7 @@ use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
 use std::path::{ Path, PathBuf };
 use users::{ get_group_by_gid, get_user_by_uid };
 
-use super::{  ls_config::LsConfig, utils::{ is_broken_link , apply_color } };
+use super::{ ls_config::LsConfig, utils::{ is_broken_link, apply_color } };
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum FileType {
@@ -124,7 +124,6 @@ impl Entry {
             major.clone(),
             minor.clone(),
             self.get_date(),
-            file_name
             file_name
         ]
     }

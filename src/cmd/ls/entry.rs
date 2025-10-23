@@ -259,7 +259,9 @@ impl Entry {
                         &self.target_metadata.clone().unwrap()
                     );
                     return suffix;
-                } 
+                } else {
+                    return ' ' 
+                }
             }
         }
         let (_, _, suffix) = Self::get_entry_type(&self.metadata);

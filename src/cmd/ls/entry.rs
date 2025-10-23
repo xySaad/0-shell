@@ -9,7 +9,7 @@ use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
 use std::path::{ Path, PathBuf };
 use users::{ get_group_by_gid, get_user_by_uid };
 
-use super::{ ls_config::LsConfig, utils::is_broken_link };
+use super::{ ls_config::LsConfig, utils::{ is_broken_link, apply_color } };
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum FileType {
@@ -23,6 +23,18 @@ pub enum FileType {
     Socket,
     NamedPipe,
 }
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ColorStyle {
+    BoldGreen,
+    BlueBold,
+    BoldYellow,
+    CyanBold,
+    RedBold,
+    BoldMagenta,
+    BrightWhite,
+}
+
 #[derive(Debug, Clone)]
 pub struct Entry {
     pub metadata: Metadata,
@@ -77,13 +89,21 @@ impl Entry {
     }
 
     pub fn as_array(&mut self) -> Vec<String> {
-        let mut file_name = self.color_name();
+        let color_style = self.color_name_style();
+        let mut file_name = apply_color(&self.get_entry_name(), color_style);
         if self.ls_config.l_flag_set {
             if self.symlink_target_path.is_some() {
                 file_name.push_str(" -> ");
-                file_name.push_str(
-                    &self.symlink_target_path.clone().unwrap().to_string_lossy().to_string()
-                );
+                let target_color = match &self.target_metadata {
+                    Some(metadata) => Self::color_style_for_metadata(&metadata),
+                    None => ColorStyle::RedBold,
+                };
+                let target_name = self.symlink_target_path
+                    .clone()
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string();
+                file_name.push_str(&apply_color(&target_name, target_color));
             }
         }
         if self.ls_config.f_flag_set {
@@ -136,30 +156,39 @@ impl Entry {
         }
     }
 
-    fn color_name(&self) -> String {
-        let (entry_type, _, _) = Self::get_entry_type(&self.metadata.clone());
-        let result = self.get_entry_name();
-        let colored_entry = match true {
-            _ if entry_type == FileType::Executable => format!("{}", result.bold().green()),
+    fn color_name_style(&self) -> ColorStyle {
+        let (entry_type, _, _) = Self::get_entry_type(&self.metadata);
 
-            _ if entry_type == FileType::Directory => format!("{}", result.blue().bold()),
+        let is_broken_symlink =
+            entry_type == FileType::Symlink &&
+            self.symlink_target_path.is_some() &&
+            self.target_metadata.is_none();
 
-            _ if
-                entry_type == FileType::BlockDevice ||
-                entry_type == FileType::CharDevice ||
-                entry_type == FileType::NamedPipe
-            => {
-                format!("{}", result.bold().yellow())
-            }
-
-            _ if entry_type == FileType::Symlink => format!("{}", result.cyan().bold()),
-            _ if entry_type == FileType::BrokenSymlink => format!("{}", result.red().bold()),
-
-            _ if entry_type == FileType::Socket => format!("{}", result.bold().magenta()),
-            _ => format!("{}", result.bright_white()),
-        };
-
-        colored_entry
+        if is_broken_symlink {
+            return ColorStyle::RedBold;
+        }
+        match entry_type {
+            FileType::Executable => ColorStyle::BoldGreen,
+            FileType::Directory => ColorStyle::BlueBold,
+            FileType::BlockDevice | FileType::CharDevice | FileType::NamedPipe =>
+                ColorStyle::BoldYellow,
+            FileType::Symlink => ColorStyle::CyanBold,
+            FileType::BrokenSymlink => ColorStyle::RedBold,
+            FileType::Socket => ColorStyle::BoldMagenta,
+            _ => ColorStyle::BrightWhite,
+        }
+    }
+    pub fn color_style_for_metadata(metadata: &Metadata) -> ColorStyle {
+        let (entry_type, _, _) = Self::get_entry_type(metadata);
+        match entry_type {
+            FileType::Executable => ColorStyle::BoldGreen,
+            FileType::Directory => ColorStyle::BlueBold,
+            FileType::BlockDevice | FileType::CharDevice | FileType::NamedPipe =>
+                ColorStyle::BoldYellow,
+            FileType::Symlink => ColorStyle::CyanBold,
+            FileType::Socket => ColorStyle::BoldMagenta,
+            _ => ColorStyle::BrightWhite,
+        }
     }
     pub fn get_entry_type(metadata: &Metadata) -> (FileType, char, char) {
         let is_executable = (metadata.permissions().mode() & 0o111) != 0;
@@ -260,7 +289,7 @@ impl Entry {
                     );
                     return suffix;
                 } else {
-                    return ' ' 
+                    return ' ';
                 }
             }
         }

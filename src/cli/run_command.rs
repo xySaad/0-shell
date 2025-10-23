@@ -1,9 +1,9 @@
 use std::process::exit;
 
-use libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, c_int, close, dup2, fork, waitpid};
+use libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, c_int, close, fork, waitpid};
 
 use crate::{cmd::*, 
-    compiler::interpreter::Command,
+    // compiler::interpreter::Command,
     compiler::interpreter::ShellEnv
 };
 
@@ -18,6 +18,8 @@ impl Shell {
         }
     }
 }
+use crate::cmd::{clear::clear, *};
+use crate::compiler::command::Command;
 
 // forks a command and returns exit status
 pub fn run_command(cmd: Command) -> i32 {
@@ -44,7 +46,9 @@ pub fn run_command(cmd: Command) -> i32 {
             "cd" => cd::cd(args, &mut shell),
             "rm" => rm::rm(args),
             "pwd" => pwd::pwd(args, &shell),
+            "mkdir" => mkdir::mkdir(args),
             "exit" => exit(0),
+            "clear" => clear(),
             _ => {
                 eprintln!("Command '{}' not found", name);
                 127

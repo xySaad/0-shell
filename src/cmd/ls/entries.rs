@@ -23,32 +23,7 @@ impl Entries {
                         total += valid_entry.metadata.unwrap().st_blocks();
                     }
                 }
-                None => {
-                    match fs::symlink_metadata(path) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            if e.kind() == ErrorKind::NotFound {
-                                eprintln!(
-                                    "ls: cannot access '{}': No such file or directory",
-                                    path.to_string_lossy()
-                                );
-                            } else if e.kind() == ErrorKind::PermissionDenied {
-                                eprintln!(
-                                    "ls: cannot access '{}': Permission denied",
-                                    path.to_string_lossy()
-                                );
-                                if *ls_config.status_code.borrow() != 2 {
-                                    *ls_config.status_code.borrow_mut() = 1;
-                                }
-                            } else {
-                                if *ls_config.status_code.borrow() != 2 {
-                                    *ls_config.status_code.borrow_mut() = 1;
-                                }
-                                eprintln!("{}", e);
-                            }
-                        }
-                    };
-                }
+                None => {}
             }
         }
         Self {

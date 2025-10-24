@@ -9,7 +9,7 @@ use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
 use std::path::{ Path, PathBuf };
 use users::{ get_group_by_gid, get_user_by_uid };
 
-use super::{ ls_config::LsConfig, utils::{  apply_color } };
+use super::{ ls_config::LsConfig, utils::{ apply_color } };
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum FileType {
@@ -37,7 +37,7 @@ pub enum ColorStyle {
 
 #[derive(Debug, Clone)]
 pub struct Entry {
-    pub metadata: Option<Metadata>,
+    pub metadata: Metadata,
     pub ls_config: LsConfig,
     pub path: PathBuf,
     pub symlink_target_path: Option<PathBuf>,
@@ -45,7 +45,7 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub fn new(path: &PathBuf, ls_config: &LsConfig) -> Result<Self, (Option<Self>, io::Error) {
+    pub fn new(path: &PathBuf, ls_config: &LsConfig) -> Option<Self> {
         let metadata = match fs::symlink_metadata(path) {
             Ok(some_metadata) => some_metadata,
             Err(_) => {
@@ -135,6 +135,9 @@ impl Entry {
     }
 
     fn get_entry_name(&self) -> String {
+        // if self.path.is_absolute() {
+        //     return self.path.to_string_lossy().to_string();
+        // }
         if self.path.to_string_lossy().to_string().ends_with("..") {
             "..".to_string()
         } else if self.path.to_string_lossy().to_string().ends_with(".") {
@@ -300,3 +303,34 @@ impl Entry {
         suffix
     }
 }
+
+// this is not a good way to handle things
+// too much repition !!!!!
+// #[derive(Debug, PartialEq, Clone)]
+// pub struct PartialEntry {
+//     file_type: FileType,
+//     file_name: String,
+//     path: PathBuf,
+//     ls_config: LsConfig,
+// }
+
+// impl PartialEntry {
+//     fn new(path: &PathBuf, ls_config: &LsConfig) -> Option<Self> {
+//         let file_type = if path.is_symlink() {
+//             FileType::Symlink
+//         } else if path.is_dir() {
+//             FileType::Directory
+//         } else if path.is_file() {
+//             FileType::Regular
+//         } else {
+//             return None;
+//         };
+
+//         Some(Self {
+//             file_type: file_type,
+//             file_name: path.to_string_lossy().to_string(),
+//             path: path.clone(),
+//             ls_config: ls_config.clone(),
+//         })
+//     }
+// }

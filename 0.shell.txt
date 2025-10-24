@@ -1,4 +1,0 @@
-total 12
-drwxr-xr-x  2 ooumayma talent    4096 Oct 23 13:42 insider/  
--rw-r--r--  1 ooumayma talent      61 Oct 23 13:42 one.text  
--rw-r--r--  1 ooumayma talent      23 Oct 23 13:42 two.text  

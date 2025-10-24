@@ -38,6 +38,7 @@ pub enum Node {
     },
     WhiteSpace(char),
     Operator(Operator),
+    /// escaped newline in substitution
     Delimiter,
     EOF,
 }

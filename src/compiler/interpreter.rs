@@ -43,8 +43,7 @@ impl<R: Fn() -> String, E: Fn(Command) -> i32> Interpreter<R, E> {
 
         let mut command = Command::default();
         while let Some(node) = seq.next() {
-            // delimiters like ';' and '\n' outside
-            if let Node::Delimiter | Node::Operator(Operator::SemiColon) = node {
+            if let Node::Delimiter = node {
                 break;
             }
 
@@ -56,7 +55,7 @@ impl<R: Fn() -> String, E: Fn(Command) -> i32> Interpreter<R, E> {
 
                 if let Some(_) = seq.peek() {
                     match op {
-                        Operator::SemiColon => (),
+                        Operator::SemiColon => break,
                         Operator::And => todo!(),
                         Operator::AndIf => todo!(),
                         Operator::Pipe => todo!(),

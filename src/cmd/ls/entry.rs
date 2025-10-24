@@ -42,8 +42,6 @@ pub struct Entry {
     pub path: PathBuf,
     pub symlink_target_path: Option<PathBuf>,
     pub target_metadata: Option<Metadata>,
-
-    // pub symlink_path : Option<PathBuf>,
 }
 
 impl Entry {
@@ -60,14 +58,7 @@ impl Entry {
         if metadata.file_type().is_symlink() {
             match fs::read_link(path) {
                 Ok(target_path) => {
-                    let resolved_target_path = if target_path.is_absolute() {
-                        target_path.clone()
-                    } else {
-                        path.parent()
-                            .unwrap_or_else(|| Path::new(""))
-                            .join(&target_path)
-                    };
-                    symlink_target_path = Some(resolved_target_path);
+                    symlink_target_path = Some(target_path);
                     // we need to use metadata to follow the link to the inner target ;)
                     match fs::metadata(path) {
                         Ok(some_metadata) => {

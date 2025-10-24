@@ -40,7 +40,7 @@ impl Entries {
                                     *ls_config.status_code.borrow_mut() = 1;
                                 }
                             } else {
-                                 let status_code = ls_config.status_code.borrow();
+                                let status_code = ls_config.status_code.borrow();
                                 if *status_code != 2 {
                                     *ls_config.status_code.borrow_mut() = 1;
                                 }
@@ -83,10 +83,16 @@ impl fmt::Display for Entries {
             for k in 0..self.entries[j].len() {
                 let value = vec_max[k];
                 // case of numbers to (from the right)
+                if value == 0 {
+                    continue;
+                }
                 if k == 1 || k == 4 || k == 5 {
                     // eprintln!("hunaaa k : {}", k );
                     let formatted = format!("{0:>1$}", self.entries[j][k], value);
-                    write!(f, "{formatted} ")?;
+                    write!(f, "{formatted}")?;
+                    if k == 1 || k == 5 {
+                        write!(f, " ")?;
+                    }
                     // write!(f, " ")?;
                     // from the left
                 } else if k == self.entries[j].len() - 1 {
@@ -94,9 +100,6 @@ impl fmt::Display for Entries {
                 } else {
                     let formatted = format!("{0:<1$}", self.entries[j][k], value);
                     write!(f, "{}", formatted)?;
-                    if self.entries[j][4] == "" && k == 3 {
-                        continue;
-                    }
                     write!(f, " ")?;
                 }
             }

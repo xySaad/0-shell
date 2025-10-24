@@ -172,7 +172,7 @@ pub fn read_target_path(
                             .to_string();
 
                         let entry_b = binding_b.strip_prefix(".").unwrap_or(&binding_b);
-                        entry_a.to_ascii_lowercase().cmp(&entry_b.to_ascii_lowercase())
+                        entry_a.to_lowercase().cmp(&entry_b.to_lowercase())
                     });
 
                     let mut paths = if ls_config.a_flag_set {

@@ -2,7 +2,8 @@ use std::process::exit;
 
 use libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, c_int, close, fork, waitpid};
 
-use crate::{cmd::*, compiler::interpreter::Command};
+use crate::cmd::{clear::clear, *};
+use crate::compiler::command::Command;
 
 // forks a command and returns exit status
 pub fn run_command(cmd: Command) -> i32 {
@@ -25,7 +26,9 @@ pub fn run_command(cmd: Command) -> i32 {
             "echo" => echo(args),
             "cp" => cp::cp(args),
             "ls"=> ls::run_ls(args),
+            "mkdir" => mkdir::mkdir(args),
             "exit" => exit(0),
+            "clear" => clear(),
             _ => {
                 eprintln!("Command '{}' not found", name);
                 127

@@ -12,27 +12,32 @@ pub struct LsConfig {
     pub l_flag_set: bool,
     pub f_flag_set: bool,
     pub target_paths: Vec<String>,
+    pub target_files: Vec<String>,
+    pub target_dirs: Vec<String>,
     pub status_code: RefCell<i32>,
     flags: Vec<String>,
 }
 
 impl LsConfig {
     pub fn new(args: &Vec<String>) -> Self {
+        let flags = args
+            .iter()
+            .filter(|a| a.starts_with('-'))
+            .cloned() // hadiiii 7itash bla biha &String instead of owned Strings // and i don't want to consume l args
+            .collect();
+        let targets = args
+            .iter()
+            .filter(|a| !a.starts_with('-'))
+            .cloned()
+            .collect();
         Self {
             a_flag_set: false,
             l_flag_set: false,
             f_flag_set: false,
-
-            target_paths: args
-                .iter()
-                .filter(|a| !a.starts_with('-'))
-                .cloned() // hadiiii 7itash bla biha &String instead of owned Strings // and i don't want to consume l args
-                .collect(),
-            flags: args
-                .iter()
-                .filter(|a| a.starts_with('-'))
-                .cloned()
-                .collect(),
+            target_paths: targets,
+            target_dirs: vec![],
+            target_files: vec![],
+            flags: flags,
             status_code: RefCell::new(0),
         }
     }
@@ -86,7 +91,19 @@ impl LsConfig {
         });
         // exists won't work here because it's part of metadata
         self.target_paths.retain(|target_path| { fs::symlink_metadata(target_path).is_ok() });
-        self.target_paths.sort_by(|a, b| a.to_ascii_lowercase().cmp(&b.to_ascii_lowercase()));
+        // filter out the dirs and the files and then sort them alphabeticallly
+        self.target_dirs = self.target_paths
+            .iter()
+            .filter(|target_path| { fs::symlink_metadata(target_path).unwrap().is_dir() })
+            .cloned()
+            .collect();
+        self.target_files = self.target_paths
+            .iter()
+            .filter(|target_path| { fs::symlink_metadata(target_path).unwrap().is_file() })
+            .cloned()
+            .collect();
+        self.target_dirs.sort_by(|a, b| a.to_ascii_lowercase().cmp(&b.to_ascii_lowercase()));
+        self.target_files.sort_by(|a, b| a.to_ascii_lowercase().cmp(&b.to_ascii_lowercase()));
     }
 
     pub fn print_ls(&mut self) {
@@ -184,7 +201,7 @@ pub fn read_target_path(
                         entry_a.to_lowercase().cmp(&entry_b.to_lowercase())
                     });
 
-                    let  paths = if ls_config.a_flag_set {
+                    let paths = if ls_config.a_flag_set {
                         paths.insert(0, Path::new(target_path).join(".").to_path_buf());
                         paths.insert(1, Path::new(target_path).join("..").to_path_buf());
                         paths
@@ -210,4 +227,17 @@ pub fn read_target_path(
             return (target_path.clone(), Ok(vec![Path::new(target_path).to_path_buf()]));
         }
     })
+}
+
+
+
+
+// files are those who are symlink too but without -l and -F 
+pub fn process_files() {
+
+}
+
+// dirs are also symlinks with defalt ls or ls -a 
+pub fn process_dirs() {
+
 }

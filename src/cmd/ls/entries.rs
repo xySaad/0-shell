@@ -65,6 +65,7 @@ impl fmt::Display for Entries {
                     // eprintln!("hunaaa k : {}", k );
                     let formatted = format!("{0:>1$}", self.entries[j][k], value);
                     line.push_str(&formatted);
+                    // minor and major must not have space between each other .
                     if k == 1 || k == 5 {
                         line.push(' ');
                     }

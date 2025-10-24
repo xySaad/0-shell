@@ -1,32 +1,47 @@
 use std::fs;
-use std::io::{self, Read};
+use std::io::{self, BufRead, Write};
 
-pub fn cat(args: &[String]) -> i32 {
-    let mut output = String::new();
+// Function to read stdin interactively
+fn read_input() {
+    let stdin = io::stdin();
+    let stdout = io::stdout();
+    let mut handle_out = stdout.lock();
 
-    if args.is_empty() {
-        // Read from stdin if no arguments are provided
-        match io::stdin().read_to_string(&mut output) {
-            Ok(_) => {
-                print!("{}", output);
-                0
+    for line in stdin.lock().lines() {
+        match line {
+            Ok(l) => {
+                writeln!(handle_out, "{}", l).unwrap();
             }
             Err(e) => {
-                eprintln!("cat: cannot read from stdin: {}", e);
-                1
+                writeln!(handle_out, "cat: stdin: {}", e).unwrap();
+                break;
             }
         }
-    } else {
-        for filename in args {
+    }
+}
+
+// this is the cat function
+pub fn cat(args: &[String]) -> i32 {
+    let mut all_ok = true;
+
+    if args.is_empty() {
+        read_input();
+        return 0; 
+    }
+
+    for (_, filename) in args.iter().enumerate() {
+        if filename == "-" {
+            read_input();
+        } else {
             match fs::read_to_string(filename) {
-                Ok(content) => output.push_str(&content),
+                Ok(content) => print!("{}\n", content),
                 Err(e) => {
-                    eprintln!("cat: cannot open '{}': {}", filename, e);
-                    return 1;
+                    eprintln!("cat: {}: {}", filename, e);
+                    all_ok = false
                 }
             }
         }
-        print!("{}", output);
-        0
     }
+
+    if all_ok { 0 } else { 1 }
 }

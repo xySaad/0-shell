@@ -22,7 +22,7 @@ impl LsConfig {
             a_flag_set: false,
             l_flag_set: false,
             f_flag_set: false,
-            
+
             target_paths: args
                 .iter()
                 .filter(|a| !a.starts_with('-'))
@@ -94,8 +94,14 @@ impl LsConfig {
         self.extract_valid_entries();
         let mut iter = read_target_path(self).into_iter().peekable();
         while let Some((target_path, resulted_entry)) = iter.peek() {
-            let is_directory = match Entry::new(&Path::new(&target_path).to_path_buf(), self, &target_path) {
-                Some(valid_entry) => Entry::get_entry_type(&valid_entry.metadata).0 == FileType::Directory,
+            let is_directory = match
+                Entry::new(&Path::new(&target_path).to_path_buf(), self, &target_path)
+            {
+                Some(valid_entry) =>
+                    match valid_entry.metadata {
+                        Some(metadata) => Entry::get_entry_type(&metadata).0 == FileType::Directory,
+                        None => valid_entry.get_pseudo_entry_type().0 == FileType::Directory,
+                    }
                 None => false,
             };
             //println!("{:?}", resulted_entry);
@@ -142,7 +148,10 @@ pub fn read_target_path(
 ) -> impl Iterator<Item = (String, Result<Vec<PathBuf>, io::Error>)> {
     ls_config.target_paths.iter().map(|target_path| {
         let path = Path::new(target_path);
-        if (path.is_symlink() && !ls_config.l_flag_set && !ls_config.f_flag_set) || (path.is_dir() && !path.is_symlink()) {
+        if
+            (path.is_symlink() && !ls_config.l_flag_set && !ls_config.f_flag_set) ||
+            (path.is_dir() && !path.is_symlink())
+        {
             match fs::read_dir(target_path) {
                 Ok(entries) => {
                     let mut paths = Vec::new();

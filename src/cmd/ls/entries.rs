@@ -18,8 +18,10 @@ impl Entries {
             // as we have access to the ls_config we can mutate the value of the status code
             match Entry::new(path, ls_config, target_entry) {
                 Some(mut valid_entry) => {
-                    entries.push(valid_entry.as_array());
-                    total += valid_entry.metadata.st_blocks();
+                    entries.push(valid_entry.handle_entry());
+                    if valid_entry.metadata.is_some() {
+                        total += valid_entry.metadata.unwrap().st_blocks();
+                    }
                 }
                 None => {
                     match fs::symlink_metadata(path) {

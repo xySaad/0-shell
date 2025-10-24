@@ -1,8 +1,7 @@
 use super::{ entry::Entry, ls_config::LsConfig };
-use std::io::ErrorKind;
 use std::os::linux::fs::MetadataExt;
 use std::path::PathBuf;
-use std::{ fmt, fs };
+use std::{ fmt };
 // seems a good idea
 #[derive(Debug, Clone)]
 pub struct Entries {

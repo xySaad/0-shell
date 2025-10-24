@@ -184,7 +184,7 @@ pub fn read_target_path(
                         entry_a.to_lowercase().cmp(&entry_b.to_lowercase())
                     });
 
-                    let mut paths = if ls_config.a_flag_set {
+                    let  paths = if ls_config.a_flag_set {
                         paths.insert(0, Path::new(target_path).join(".").to_path_buf());
                         paths.insert(1, Path::new(target_path).join("..").to_path_buf());
                         paths

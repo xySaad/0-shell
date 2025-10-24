@@ -1,6 +1,4 @@
-use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
-use std::path::PathBuf;
-use std::fs;
+
 use colored::Colorize;
 
 use super::{ entry::ColorStyle };

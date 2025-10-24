@@ -5,7 +5,7 @@ use std::fs::{ self, Metadata };
 use std::io::{ ErrorKind };
 use std::os::linux::fs::MetadataExt as LinuxMetadataExt;
 use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
-use std::path::{ Path, PathBuf };
+use std::path::{  PathBuf };
 use users::{ get_group_by_gid, get_user_by_uid };
 
 

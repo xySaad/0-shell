@@ -6,12 +6,6 @@ use colored::Colorize;
 use super::{ entry::ColorStyle };
 
 
-pub fn is_broken_link(path: &PathBuf) -> bool {
-    match fs::metadata(path) {
-        Ok(_) => false,
-        Err(_) => true,
-    }
-}
 
 pub fn apply_color(result: &str, style: ColorStyle) -> String {
     match style {

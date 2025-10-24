@@ -35,13 +35,11 @@ impl Entries {
                                     "ls: cannot access '{}': Permission denied",
                                     path.to_string_lossy()
                                 );
-                                let status_code = ls_config.status_code.borrow();
-                                if *status_code != 2 {
+                                if *ls_config.status_code.borrow() != 2 {
                                     *ls_config.status_code.borrow_mut() = 1;
                                 }
                             } else {
-                                let status_code = ls_config.status_code.borrow();
-                                if *status_code != 2 {
+                                if *ls_config.status_code.borrow() != 2 {
                                     *ls_config.status_code.borrow_mut() = 1;
                                 }
                                 eprintln!("{}", e);
@@ -80,6 +78,7 @@ impl fmt::Display for Entries {
         // we need to find the max for each field
         for j in 0..self.entries.len() {
             //eprintln!("entries : {:?}", self.entries);
+            let mut line = String::new();
             for k in 0..self.entries[j].len() {
                 let value = vec_max[k];
                 // case of numbers to (from the right)
@@ -89,20 +88,18 @@ impl fmt::Display for Entries {
                 if k == 1 || k == 4 || k == 5 {
                     // eprintln!("hunaaa k : {}", k );
                     let formatted = format!("{0:>1$}", self.entries[j][k], value);
-                    write!(f, "{formatted}")?;
+                    line.push_str(&formatted);
                     if k == 1 || k == 5 {
-                        write!(f, " ")?;
+                        line.push(' ');
                     }
                     // write!(f, " ")?;
                     // from the left
-                } else if k == self.entries[j].len() - 1 {
-                    write!(f, "{}", self.entries[j][k].trim())?;
                 } else {
-                    let formatted = format!("{0:<1$}", self.entries[j][k], value);
-                    write!(f, "{}", formatted)?;
-                    write!(f, " ")?;
+                    let formatted = format!("{0:<1$} ", self.entries[j][k], value);
+                    line.push_str(&formatted);
                 }
             }
+            write!(f, "{}", line.trim())?;
             if j != self.entries.len() - 1 {
                 writeln!(f)?;
             }

@@ -9,7 +9,7 @@ use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
 use std::path::{ Path, PathBuf };
 use users::{ get_group_by_gid, get_user_by_uid };
 
-use super::{ ls_config::LsConfig, utils::{ is_broken_link, apply_color } };
+use super::{ ls_config::LsConfig, utils::{  apply_color } };
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum FileType {
@@ -37,7 +37,7 @@ pub enum ColorStyle {
 
 #[derive(Debug, Clone)]
 pub struct Entry {
-    pub metadata: Metadata,
+    pub metadata: Option<Metadata>,
     pub ls_config: LsConfig,
     pub path: PathBuf,
     pub symlink_target_path: Option<PathBuf>,
@@ -45,7 +45,7 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub fn new(path: &PathBuf, ls_config: &LsConfig) -> Option<Self> {
+    pub fn new(path: &PathBuf, ls_config: &LsConfig) -> Result<Self, (Option<Self>, io::Error) {
         let metadata = match fs::symlink_metadata(path) {
             Ok(some_metadata) => some_metadata,
             Err(_) => {

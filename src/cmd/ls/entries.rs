@@ -11,12 +11,12 @@ pub struct Entries {
 }
 
 impl Entries {
-    pub fn new(paths: &Vec<PathBuf>, ls_config: &LsConfig) -> Self {
+    pub fn new(paths: &Vec<PathBuf>, ls_config: &LsConfig, target_entry: &String) -> Self {
         let mut entries = Vec::new();
         let mut total = 0;
         for path in paths {
             // as we have access to the ls_config we can mutate the value of the status code
-            match Entry::new(path, ls_config) {
+            match Entry::new(path, ls_config, target_entry) {
                 Some(mut valid_entry) => {
                     entries.push(valid_entry.as_array());
                     total += valid_entry.metadata.st_blocks();

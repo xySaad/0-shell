@@ -42,10 +42,11 @@ pub struct Entry {
     pub path: PathBuf,
     pub symlink_target_path: Option<PathBuf>,
     pub target_metadata: Option<Metadata>,
+    pub target_entry: String,
 }
 
 impl Entry {
-    pub fn new(path: &PathBuf, ls_config: &LsConfig) -> Option<Self> {
+    pub fn new(path: &PathBuf, ls_config: &LsConfig, target_entry: &String) -> Option<Self> {
         let metadata = match fs::symlink_metadata(path) {
             Ok(some_metadata) => some_metadata,
             Err(_) => {
@@ -76,6 +77,7 @@ impl Entry {
             path: path.clone(),
             symlink_target_path: symlink_target_path,
             target_metadata: target_metadata,
+            target_entry: target_entry.clone(),
         })
     }
 
@@ -135,9 +137,9 @@ impl Entry {
     }
 
     fn get_entry_name(&self) -> String {
-        // if self.path.is_absolute() {
-        //     return self.path.to_string_lossy().to_string();
-        // }
+        if self.path.to_string_lossy().to_string()== self.target_entry && self.path.is_absolute() {
+            return self.path.to_string_lossy().to_string();
+        }
         if self.path.to_string_lossy().to_string().ends_with("..") {
             "..".to_string()
         } else if self.path.to_string_lossy().to_string().ends_with(".") {

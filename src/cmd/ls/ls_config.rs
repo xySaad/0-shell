@@ -94,14 +94,14 @@ impl LsConfig {
         self.extract_valid_entries();
         let mut iter = read_target_path(self).into_iter().peekable();
         while let Some((target_path, resulted_entry)) = iter.peek() {
-            let is_directory = match Entry::new(&Path::new(&target_path).to_path_buf(), self) {
+            let is_directory = match Entry::new(&Path::new(&target_path).to_path_buf(), self, &target_path) {
                 Some(valid_entry) => Entry::get_entry_type(&valid_entry.metadata).0 == FileType::Directory,
                 None => false,
             };
             //println!("{:?}", resulted_entry);
             match resulted_entry {
                 Ok(entries_vec) => {
-                    let entries = Entries::new(&entries_vec, self);
+                    let entries = Entries::new(&entries_vec, self, &target_path);
                     if
                         (self.target_paths.len() != 1 || *self.status_code.borrow() != 0) &&
                         is_directory

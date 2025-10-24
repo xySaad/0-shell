@@ -1,17 +1,15 @@
-use crate::cli::Shell;
+use std::env;
 
-pub fn pwd(args: &[String], shell: &Shell) -> i32 {
+pub fn pwd(args: &[String]) -> i32 {
     if args.len() != 0 {
         println!("pwd: too many arguments");
         return  1;
     }
-    // should handle path when removed /home/amellagu/.local/share/Trash/files/test !!
-    match shell.env.get("PWD") {
-        Some(value) => println!("{}", value),
-        None => println!("No previous directory found (PWD not set yet)")
-    };
 
-    // println!("{:?}", shell.env.get("PWD").cloned().unwrap_or_default()); // unwrap_or_else(|_| String::from("/")
+    match env::var("PWD") {
+        Ok(value) => println!("{}", value),
+        Err(e) => eprintln!("0-shell: cd: PWD not set, {}", e)
+    };
 
     0
 }

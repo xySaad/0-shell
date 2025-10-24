@@ -1,7 +1,5 @@
 use crate::compiler::{command::Command, nodes::Node, parser::Parser, tokens::Operator};
-use std::{
-    collections::HashMap, env, io::{Read, pipe}, iter::Peekable
-};
+use std::{env, io::{Read, pipe}, iter::Peekable};
 
 pub struct Interpreter<R: Fn() -> String, E: Fn(Command) -> i32> {
     reader: R,
@@ -146,34 +144,5 @@ impl<R: Fn() -> String, E: Fn(Command) -> i32> Interpreter<R, E> {
             Node::Delimiter => "".into(),
             Node::EOF => "\0".into(),
         }
-    }
-}
-
-
-// // cmd: printenv --> print all vars at env \\ \\
-pub struct ShellEnv {
-    vars: HashMap<String, String>,
-}
-
-impl ShellEnv {
-    pub fn new() -> Self {
-        let mut vars = HashMap::new();
-        // Initialize with current process env
-        for (k, v) in std::env::vars() {
-            vars.insert(k, v);
-        }
-        Self { vars }
-    }
-
-    pub fn get(&self, key: &str) -> Option<&String> {
-        self.vars.get(key)
-    }
-
-    pub fn set(&mut self, key: &str, value: &str) {
-        self.vars.insert(key.to_string(), value.to_string());
-    }
-
-    pub fn unset(&mut self, key: &str) {
-        self.vars.remove(key);
     }
 }

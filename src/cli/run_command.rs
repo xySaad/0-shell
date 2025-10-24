@@ -2,22 +2,6 @@ use std::process::exit;
 
 use libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, c_int, close, fork, waitpid};
 
-use crate::{cmd::*, 
-    // compiler::interpreter::Command,
-    compiler::interpreter::ShellEnv
-};
-
-pub struct Shell {
-    pub env: ShellEnv,
-}
-
-impl Shell {
-    pub fn new() -> Self {
-        Self {
-            env: ShellEnv::new(),
-        }
-    }
-}
 use crate::cmd::{clear::clear, *};
 use crate::compiler::command::Command;
 
@@ -28,6 +12,19 @@ pub fn run_command(cmd: Command) -> i32 {
         ref args,
         io_streams,
     } = cmd;
+    
+    // let mut exit_status =
+    match name.as_str() {
+        "cd" => return cd::cd(args),
+        "pwd" => return pwd::pwd(args),
+        "clear" => return clear(),
+        "exit" => exit(0),
+        _ => {}
+    }
+
+    // if exit_status != 0 {
+    //     exit(exit_status);
+    // }
 
     let pid = unsafe { fork() };
 
@@ -35,20 +32,14 @@ pub fn run_command(cmd: Command) -> i32 {
         return 1;
     }
 
-    let mut shell = Shell::new();
-
     // child
     if pid == 0 {
         let handlers = io_streams.redirect();
         let exit_status = match name.as_str() {
             "echo" => echo(args),
             "cp" => cp::cp(args),
-            "cd" => cd::cd(args, &mut shell),
-            "rm" => rm::rm(args),
-            "pwd" => pwd::pwd(args, &shell),
             "mkdir" => mkdir::mkdir(args),
-            "exit" => exit(0),
-            "clear" => clear(),
+            "rm" => rm::rm(args),
             _ => {
                 eprintln!("Command '{}' not found", name);
                 127

@@ -1,7 +1,7 @@
 use std::fs;
 use std::io::{self, BufRead, Write};
 
-// Function to read stdin interactively
+// Reads from standard input line by line and writes it to standard output
 fn read_input() {
     let stdin = io::stdin();
     let stdout = io::stdout();
@@ -20,7 +20,7 @@ fn read_input() {
     }
 }
 
-// this is the cat function
+// Implements the behavior of the `cat` command.
 pub fn cat(args: &[String]) -> i32 {
     let mut all_ok = true;
 

@@ -3,10 +3,14 @@ use std::os::linux::fs::MetadataExt;
 use std::path::PathBuf;
 use std::{ fmt };
 // seems a good idea
+
+use super::utils::{ get_column_len };
 #[derive(Debug, Clone)]
 pub struct Entries {
     pub entries: Vec<Vec<String>>,
     pub total: u64,
+    pub ls_config: LsConfig,
+    pub target_entry: String,
 }
 
 impl Entries {
@@ -28,6 +32,8 @@ impl Entries {
         Self {
             entries: entries,
             total: total / 2,
+            ls_config: ls_config.clone(),
+            target_entry: target_entry.clone(),
         }
     }
 }
@@ -37,20 +43,15 @@ impl Entries {
 impl fmt::Display for Entries {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         //  iterate through the columns to find the max
-        let mut vec_max = Vec::new();
-        // println!("{:?}", self.entries);
-        for i in 0..self.entries[0].len() {
-            let mut max = self.entries[0][i].len();
-
-            for row in &self.entries {
-                if max < row[i].len() {
-                    max = row[i].len();
-                }
-            }
-            vec_max.push(max);
-        }
+        let vec_max = get_column_len(&self.entries);
         // eprintln!(" hnaa: {:?}", vec_max);
+        if self.target_entry != "" && self.ls_config.num_args > 1 {
+            writeln!(f, "{}: ", self.target_entry)?;
+        }
 
+        if self.ls_config.l_flag_set && self.target_entry != "" {
+            writeln!(f, "total {}", self.total)?;
+        }
         // we need to find the max for each field
         for j in 0..self.entries.len() {
             //eprintln!("entries : {:?}", self.entries);

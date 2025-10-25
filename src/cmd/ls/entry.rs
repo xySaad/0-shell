@@ -5,9 +5,8 @@ use std::fs::{ self, Metadata };
 use std::io::{ ErrorKind };
 use std::os::linux::fs::MetadataExt as LinuxMetadataExt;
 use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
-use std::path::{  PathBuf };
+use std::path::{ PathBuf };
 use users::{ get_group_by_gid, get_user_by_uid };
-
 
 use super::{ ls_config::LsConfig, utils::{ apply_color } };
 
@@ -219,7 +218,7 @@ impl Entry {
         if is_broken_symlink {
             return ColorStyle::BoldRed;
         }
-     
+
         match entry_type {
             FileType::Executable => ColorStyle::BoldGreen,
             FileType::Directory => ColorStyle::BlueBold,
@@ -246,13 +245,24 @@ impl Entry {
     }
     pub fn get_pseudo_entry_type(&self) -> (FileType, char, char) {
         // we need the absolute path otherwise it worn't work :)
-        let absolute_path = self.path.as_path();
-        if absolute_path.is_symlink() {
-            (FileType::Symlink, 'l', ' ')
-        } else if absolute_path.is_dir() {
-            (FileType::Directory, 'd', '/')
-        } else {
-            (FileType::Regular, '-', ' ')
+
+        match fs::read_dir(self.path.clone()) {
+            Ok(mut entries) => {
+                // Get the first entry or handle empty directory as needed
+                if let Some(Ok(entry)) = entries.next() {
+                    if entry.path().is_symlink() {
+                        (FileType::Symlink, 'l', ' ')
+                    } else if entry.path().is_dir() {
+                        (FileType::Directory, 'd', '/')
+                    } else {
+                        (FileType::Regular, '-', ' ')
+                    }
+                } else {
+                    // No entries or error reading entries, handle appropriately
+                    (FileType::Regular, '-', ' ')
+                }
+            }
+            Err(_) => (FileType::Regular, '-', ' '),
         }
     }
 

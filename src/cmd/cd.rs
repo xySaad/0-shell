@@ -99,13 +99,13 @@ fn change_dir(target: &str, oldpwd: &str, input: &str) -> Result<(), String> {
 
     unsafe {
         env::set_var("OLDPWD", oldpwd);
-        env::set_var("PWD", &normalize_path(&PathBuf::from(target)));
+        env::set_var("PWD", &simple_path(&PathBuf::from(target)));
     }
 
     Ok(())
 }
 
-fn normalize_path(path: &Path) -> String {
+fn simple_path(path: &Path) -> String {
     let mut parts: Vec<&str> = vec![];
 
     // println!("full path before: {:?}", path);

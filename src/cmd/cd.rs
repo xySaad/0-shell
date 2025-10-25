@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 // // path = "~/home".to_string(); // handle in parser +++
 
 pub fn cd(args: &[String]) -> i32 {
-    println!("befor: {:?}", env::current_dir());
+    // println!("befor: {:?}", env::current_dir());
 
     if args.len() > 1 {
         println!("0-shell: cd: too many arguments");
@@ -76,14 +76,14 @@ pub fn cd(args: &[String]) -> i32 {
         }
     };
 
-    println!("after: {:?}", env::current_dir());
+    // println!("after: {:?}", env::current_dir());
     0
 }
 
 fn change_dir(target: &str, oldpwd: &str, input: &str) -> Result<(), String> {
     let path = Path::new(target);
     if !path.exists() {
-        return Err(format!("0-shell: cd: {}: No such file or directory", target));
+        return Err(format!("0-shell: cd: {}: No such file or directory", input));
     }
 
     match env::set_current_dir(path) {

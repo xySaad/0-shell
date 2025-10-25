@@ -1,7 +1,6 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
-// should handle "////"
 // // path = "~/home".to_string(); // handle in parser +++
 
 pub fn cd(args: &[String]) -> i32 {
@@ -34,19 +33,15 @@ pub fn cd(args: &[String]) -> i32 {
         }
 
         "-" => {
-            let oldpwd = env::var("OLDPWD").unwrap_or(String::new());
+            let oldpwd = env::var("OLDPWD").unwrap_or(String::from(&current_pwd));
 
-            if oldpwd.is_empty() {
-                println!("0-shell: cd: OLDPWD not set");
-            } else {
-                match change_dir(&oldpwd, &current_pwd, "-") {
-                    Ok(_) => println!("{}", oldpwd),
-                    Err(e) => {
-                        eprintln!("{}", e);
-                        return 1;
-                    }
-                };
-            }
+            match change_dir(&oldpwd, &current_pwd, "-") {
+                Ok(_) => println!("{}", oldpwd),
+                Err(e) => {
+                    eprintln!("{}", e);
+                    return 1;
+                }
+            };
         }
 
         ".." => {
@@ -111,43 +106,38 @@ fn change_dir(target: &str, oldpwd: &str, input: &str) -> Result<(), String> {
 }
 
 fn normalize_path(path: &Path) -> String {
-    match path.canonicalize() {
-        Ok(p) => p.display().to_string(),
-        Err(_) => path.display().to_string(),
+    let mut parts: Vec<&str> = vec![];
+
+    // println!("full path before: {:?}", path);
+    
+    for comp in path.components() {
+        match comp.as_os_str().to_str() {
+            Some(".") => continue,
+            Some("..") => { parts.pop(); }
+            Some(s) => parts.push(s),
+            None => continue,
+        }
     }
+    // println!("full path after: {:?}", path);
+    
+    let res = if path.is_absolute() {
+        format!("/{}", parts.join("/"))
+    } else {
+        parts.join("/")
+    };
+    // println!("path after join: {:?}", res);
+
+    let mut start = 0;
+    for (i, c) in res.clone().chars().enumerate() {
+        if c == '/' {
+            start = i;
+            continue;
+        }
+        break
+    }
+
+    res[start..].to_string()
 }
-
-// fn normalize_path(path: &Path) -> String {
-//     let mut parts: Vec<&str> = vec![];
-
-//     for comp in path.components() {
-//         match comp.as_os_str().to_str() {
-//             Some(".") => continue,
-//             Some("..") => { parts.pop(); }
-//             Some(s) => parts.push(s),
-//             None => continue,
-//         }
-//     }
-
-//     let mut res = if path.is_absolute() {
-//         format!("/{}", parts.join("/"))
-//     } else {
-//         parts.join("/")
-//     };
-
-//     let mut start = 0;
-//     for (i, c) in res.clone().chars().enumerate() {
-//         if c == '/' {
-//             start = i;
-//             continue;
-//         }
-//         break
-//     }
-//     if start > 1 {
-//         res = res[start..].to_string();
-//     }
-//     res
-// }
 
 
 // // path = "".to_string(); // handle

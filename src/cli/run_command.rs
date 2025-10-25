@@ -27,6 +27,7 @@ pub fn run_command(cmd: Command) -> i32 {
             "cp" => cp::cp(args),
             "ls"=> ls::run_ls(args),
             "mkdir" => mkdir::mkdir(args),
+            "cat" => cat::cat(args),
             "exit" => exit(0),
             "clear" => clear(),
             _ => {

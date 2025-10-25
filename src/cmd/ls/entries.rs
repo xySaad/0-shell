@@ -19,6 +19,7 @@ impl Entries {
         let mut total = 0;
         for path in paths {
             // as we have access to the ls_config we can mutate the value of the status code
+            // here we will need also to handle if it is a directory or just a file "" for or ...
             match Entry::new(path, ls_config, target_entry) {
                 Some(mut valid_entry) => {
                     entries.push(valid_entry.handle_entry());
@@ -50,7 +51,11 @@ impl fmt::Display for Entries {
         }
 
         if self.ls_config.l_flag_set && self.target_entry != "" {
-            writeln!(f, "total {}", self.total)?;
+            write!(f, "total {}", self.total)?;
+            // here just if there are nothing in the entries empty 
+            if vec_max.len() != 0 {
+                writeln!(f)?;
+            }
         }
         // we need to find the max for each field
         for j in 0..self.entries.len() {
@@ -70,7 +75,6 @@ impl fmt::Display for Entries {
                     if k == 1 || k == 5 {
                         line.push(' ');
                     }
-                    // write!(f, " ")?;
                     // from the left
                 } else {
                     let formatted = format!("{0:<1$} ", self.entries[j][k], value);

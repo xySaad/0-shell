@@ -7,6 +7,8 @@ use std::os::linux::fs::MetadataExt as LinuxMetadataExt;
 use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
 use std::path::{ PathBuf };
 use users::{ get_group_by_gid, get_user_by_uid };
+use std::path::Path;
+
 
 use super::{ ls_config::LsConfig, utils::{ apply_color } };
 
@@ -194,16 +196,17 @@ impl Entry {
         if self.path.to_string_lossy().to_string() == self.target_entry && self.path.is_absolute() {
             return self.path.to_string_lossy().to_string();
         }
-        if self.path.to_string_lossy().to_string().ends_with("..") {
-            "..".to_string()
-        } else if self.path.to_string_lossy().to_string().ends_with(".") {
-            ".".to_string()
-        } else {
-            self.path
-                .file_name()
-                .map(|name| name.to_string_lossy().to_string())
-                .unwrap_or_else(|| self.path.to_string_lossy().to_string())
+        if self.path == Path::new(&self.target_entry).join(".") {
+            return ".".to_string()
         }
+         if self.path == Path::new(&self.target_entry).join("..") {
+            return "..".to_string()
+        }
+
+        self.path
+            .file_name()
+            .map(|name| name.to_string_lossy().to_string())
+            .unwrap_or_else(|| self.path.to_string_lossy().to_string())
     }
 
     fn color_name_style(&self) -> ColorStyle {

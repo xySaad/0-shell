@@ -4,7 +4,7 @@ use std::io::{ ErrorKind };
 use std::fs::{ self };
 use std::cell::RefCell;
 
-use super::{ entries::{ Entries }, entry::{ FileType, Entry }, utils::{ is_broken_link } };
+use super::{ entries::{ Entries }, entry::{ FileType, Entry }, utils::{ is_broken_link, is_dir } };
 
 #[derive(Debug, Eq, Clone, PartialEq)]
 pub struct LsConfig {
@@ -95,12 +95,13 @@ impl LsConfig {
         self.target_paths.retain(|target_path| { fs::symlink_metadata(target_path).is_ok() });
 
         // filter out the dirs and the files and then sort them alphabeticallly
+        // things got messier here :)
         self.target_dirs = self.target_paths
             .iter()
             .filter(|target_path| {
                 (fs::symlink_metadata(target_path).unwrap().is_dir() &&
                     !fs::symlink_metadata(target_path).unwrap().is_symlink()) ||
-                    (fs::symlink_metadata(target_path).unwrap().is_symlink() &&
+                    (fs::symlink_metadata(target_path).unwrap().is_symlink() && is_dir(target_path.to_string()) &&
                         !is_broken_link(target_path.to_string()) &&
                         !self.l_flag_set &&
                         !self.f_flag_set)
@@ -112,7 +113,8 @@ impl LsConfig {
             .filter(|target_path| {
                 fs::symlink_metadata(target_path).unwrap().is_file() ||
                     (fs::symlink_metadata(target_path).unwrap().is_symlink() &&
-                        (self.l_flag_set || self.f_flag_set)) || is_broken_link(target_path.to_string())
+                        (self.l_flag_set || self.f_flag_set) || !is_dir(target_path.to_string())) ||
+                    is_broken_link(target_path.to_string())
             })
             .cloned()
             .collect();

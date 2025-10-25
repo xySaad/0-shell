@@ -18,16 +18,19 @@ pub fn apply_color(result: &str, style: ColorStyle) -> String {
 pub fn get_column_len(matrix: &Vec<Vec<String>>) -> Vec<usize> {
     let mut vec_max = Vec::new();
     // println!("{:?}", self.entries);
-    for i in 0..matrix[0].len() {
-        let mut max = matrix[0][i].len();
+    if matrix.len() != 0 {
+        for i in 0..matrix[0].len() {
+            let mut max = matrix[0][i].len();
 
-        for row in matrix {
-            if max < row[i].len() {
-                max = row[i].len();
+            for row in matrix {
+                if max < row[i].len() {
+                    max = row[i].len();
+                }
             }
+            vec_max.push(max);
         }
-        vec_max.push(max);
     }
+
     vec_max
 }
 
@@ -36,6 +39,14 @@ pub fn is_broken_link(target_path: String) -> bool {
     match fs::metadata(path) {
         Ok(_) => false,
 
+        Err(_) => true,
+    }
+}
+
+pub fn is_dir(target_path: String) -> bool {
+    let path = Path::new(&target_path);
+    match fs::metadata(path) {
+        Ok(metadata) => metadata.is_dir(),
         Err(_) => true,
     }
 }

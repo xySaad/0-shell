@@ -1,4 +1,4 @@
-use std::{env, fs, ops::Index, path::PathBuf};
+use std::{env, fs, path::PathBuf};
 use crate::utils::error::clear_error;
 
 pub fn rm(args: &[String]) -> i32 {
@@ -7,26 +7,29 @@ pub fn rm(args: &[String]) -> i32 {
         return 1;
     }
     println!("{:?}", args);
+
     let mut recursive = false;
+    let mut paths: Vec<&String> = Vec::new();
     let end_opt = args.iter().position(|val| val == &("--").to_string());
-    // let mut options: Vec<&String> = vec![];
-    let mut paths: Vec<&String> = vec![];
 
     for (i, val) in args.iter().enumerate() {
         match end_opt {
             Some(index) => {
                 match index != i {
                     true =>  {
-                        if index < i {
-                            if val != "-" && val.starts_with("-") {
-                                eprintln!("rm: unrecognized option '{}'", val);
-                                return 1;
+                        match &(*val.to_string()) {
+                            "-r" => recursive = true,
+                            _ => {
+                                if index < i {
+                                    if val != "-" && val.starts_with("-") {
+                                        eprintln!("rm: unrecognized option '{}'", val);
+                                        return 1;
+                                    }
+                                    else { paths.push(val); }
+                                }
+                                else { paths.push(val); }
                             }
-                            
-                            else { paths.push(val); }
-                        }
-                        
-                        else { paths.push(val); }
+                        };
                     },
                     _ => ()
                 }
@@ -39,16 +42,14 @@ pub fn rm(args: &[String]) -> i32 {
                             eprintln!("rm: unrecognized option '{}'", val);
                             return 1;
                         }
-                        
+
                         else { paths.push(val); }
                     }
                 };
             }
         };
     }
-    
-    
-    
+
     if paths.is_empty() {
         eprintln!("rm: missing operand");
         return 1;
@@ -94,34 +95,5 @@ pub fn rm(args: &[String]) -> i32 {
     0
 }
 
-// # Delete a single file
-// rm file.txt
-
-// # Delete multiple files
-// rm file1.txt file2.txt file3.txt
-
-// # Delete files with wildcard patterns
-// rm *.txt          # All .txt files in current directory
-// rm file*          # All files starting with "file"
-// rm *.log *.tmp    # All .log and .tmp files
-
-// # Delete a directory and all its contents (recursive)
-// rm -r folder_name
-
-// # Delete multiple directories
-// rm -r dir1 dir2 dir3
-
 // # Remove all files except specific ones
 // rm !(important.txt)  # Requires extglob option
-
-// # Delete hidden files
-// rm .*
-// rm .hidden_file
-
-// # Remove files with special characters
-// rm "file with spaces.txt"
-// rm 'file-name.txt'
-
-// # 2. Double-check with ls before rm
-// ls *.txt
-// rm *.txt

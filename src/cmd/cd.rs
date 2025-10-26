@@ -1,18 +1,16 @@
 use std::env;
 use std::path::{Path, PathBuf};
+use crate::utils::error::clear_error;
 
 // // path = "~/home".to_string(); // handle in parser +++
 
 pub fn cd(args: &[String]) -> i32 {
-    // println!("befor: {:?}", env::current_dir());
-
     if args.len() > 1 {
         println!("0-shell: cd: too many arguments");
         return 1;
     }
 
     let current_pwd = env::var("PWD").unwrap_or("/".to_string());
-
     let target = if args.is_empty() || args[0] == "--" {
         "~".to_string()
     } else {
@@ -47,6 +45,7 @@ pub fn cd(args: &[String]) -> i32 {
         ".." => {
             let mut logical = PathBuf::from(&current_pwd);
             logical.pop();
+
             let new_path = logical.display().to_string();
 
             match change_dir(&new_path, &current_pwd, "..") {
@@ -76,7 +75,6 @@ pub fn cd(args: &[String]) -> i32 {
         }
     };
 
-    // println!("after: {:?}", env::current_dir());
     0
 }
 
@@ -89,11 +87,7 @@ fn change_dir(target: &str, oldpwd: &str, input: &str) -> Result<(), String> {
     match env::set_current_dir(path) {
         Ok(_) => (),
         Err(e) => {
-            let mut msg = e.to_string();
-            if let Some(idx) = msg.find(" (os error") {
-                msg.truncate(idx);
-            }
-            return Err(format!("0-shell: cd: {}: {}", input, msg));
+            return Err(format!("0-shell: cd: {}: {}", input, clear_error(e)));
         }
     };
 
@@ -108,8 +102,6 @@ fn change_dir(target: &str, oldpwd: &str, input: &str) -> Result<(), String> {
 fn simple_path(path: &Path) -> String {
     let mut parts: Vec<&str> = vec![];
 
-    // println!("full path before: {:?}", path);
-    
     for comp in path.components() {
         match comp.as_os_str().to_str() {
             Some(".") => continue,
@@ -118,14 +110,12 @@ fn simple_path(path: &Path) -> String {
             None => continue,
         }
     }
-    // println!("full path after: {:?}", path);
-    
+
     let res = if path.is_absolute() {
         format!("/{}", parts.join("/"))
     } else {
         parts.join("/")
     };
-    // println!("path after join: {:?}", res);
 
     let mut start = 0;
     for (i, c) in res.clone().chars().enumerate() {
@@ -138,21 +128,3 @@ fn simple_path(path: &Path) -> String {
 
     res[start..].to_string()
 }
-
-
-// // path = "".to_string(); // handle
-// // path = "~".to_string(); // handle in parser +++
-// // path = "/".to_string(); // simple path +++
-// // path = "..".to_string(); // handle ////
-// // path = ".".to_string(); // do nothing
-// // path = "-".to_string(); // enverments variable ///////
-// // path = "my home".to_string(); // simple path //
-// // path = "home/src".to_string(); // simple path //
-// // path = "file.txt".to_string();
-// // path = ".home".to_string(); // hiden file like folder
-// // path = "/root".to_string();
-// // path = "/home".to_string();
-// // path = "~/home".to_string(); // handle in parser +++
-// // path = "./home".to_string();
-// // path = "../home".to_string();
-// // path = "../../home".to_string();

@@ -1,9 +1,5 @@
 use crate::compiler::{command::Command, nodes::Node, parser::Parser, tokens::Operator};
-use std::{
-    env,
-    io::{Read, pipe},
-    iter::Peekable,
-};
+use std::{env, io::{Read, pipe}, iter::Peekable};
 
 pub struct Interpreter<R: Fn() -> String, E: Fn(Command) -> i32> {
     reader: R,

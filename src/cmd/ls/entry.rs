@@ -3,7 +3,7 @@ use chrono_tz::Africa::Casablanca;
 use libc::{ major, minor };
 use std::fs::{ self, Metadata };
 use std::io::{ ErrorKind };
-use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
+use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt, DirEntryExt };
 use std::path::{ PathBuf };
 use users::{ get_group_by_gid, get_user_by_uid };
 use std::path::Path;
@@ -47,10 +47,9 @@ pub struct Entry {
 impl Entry {
     pub fn new(path: &PathBuf, ls_config: &LsConfig, target_entry: &String) -> Option<Self> {
         let mut errors = vec![];
-        let metadata = match fs::symlink_metadata(path) {
+        let metadata = match fs::metadata(path) {
             Ok(some_metadata) => some_metadata,
             Err(e) => {
-                println!(" hhhhhhhhhhhhhhhh{}", 5); 
                 if e.kind() == ErrorKind::NotFound {
                     eprintln!(
                         "ls: cannot access '{}': No such file or directory",
@@ -249,26 +248,29 @@ impl Entry {
             _ => ColorStyle::BrightWhite,
         }
     }
+
+
+
+    // does not work for now !!! 
     pub fn get_pseudo_entry_type(&self) -> (FileType, char, char) {
         // we need the absolute path otherwise it worn't work :)
 
-        match fs::read_dir(self.path.clone()) {
+        match fs::read_dir(self.path.clone().parent().unwrap()) {
             Ok(mut entries) => {
                 // Get the first entry or handle empty directory as needed
-                if let Some(Ok(entry)) = entries.next() {
-                    if entry.path().is_symlink() {
-                        (FileType::Symlink, 'l', ' ')
-                    } else if entry.path().is_dir() {
-                        (FileType::Directory, 'd', '/')
-                    } else {
-                        (FileType::Regular, '-', ' ')
+                for entry in entries {
+                    if entry.as_ref().unwrap().path() != self.path {
+                        continue;
                     }
-                } else {
-                    // let metada = entry.metadata().unwrap();
-                    // println!("===>> {:?}", metada.permissions());
-                    // No entries or error reading entries, handle appropriately
-                    (FileType::Regular, '-', ' ')
+                    if entry.as_ref().unwrap().path().is_symlink() {
+                        return (FileType::Symlink, 'l', ' ');
+                    } else if entry.as_ref().unwrap().path().is_dir() {
+                        return (FileType::Directory, 'd', '/');
+                    } else {
+                        return (FileType::Regular, '-', ' ');
+                    }
                 }
+                return (FileType::Regular, '-', ' ');
             }
             Err(_) => (FileType::Regular, '-', ' '),
         }

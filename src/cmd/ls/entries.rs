@@ -53,6 +53,7 @@ impl fmt::Display for Entries {
         // eprintln!(" hnaa: {:?}", vec_max);
         if self.target_entry != "" && self.ls_config.num_args > 1 {
             writeln!(f, "{}: ", self.target_entry)?;
+           
         }
 
         let vec_max = get_column_len(&self.entries);

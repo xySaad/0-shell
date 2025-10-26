@@ -3,12 +3,9 @@ use std::io;
 use std::io::{ ErrorKind };
 use std::fs::{ self };
 use std::cell::RefCell;
+use std::env;
 
-use super::{
-    entries::{ Entries },
-    entry::{ FileType, Entry },
-    utils::{ is_directory,is_file},
-};
+use super::{ entries::{ Entries }, entry::{ FileType, Entry }, utils::{ is_directory, is_file } };
 
 #[derive(Debug, Eq, Clone, PartialEq)]
 pub struct LsConfig {
@@ -27,12 +24,12 @@ impl LsConfig {
     pub fn new(args: &Vec<String>) -> Self {
         let flags = args
             .iter()
-            .filter(|a| a.starts_with('-'))
+            .filter(|a| a.starts_with('-') && a.len() > 1)
             .cloned() // hadiiii 7itash bla biha &String instead of owned Strings // and i don't want to consume l args
             .collect();
         let targets: Vec<String> = args
             .iter()
-            .filter(|a| !a.starts_with('-'))
+            .filter(|a| (!a.starts_with('-') || *a == "-"))
             .cloned()
             .collect();
         Self {
@@ -49,8 +46,12 @@ impl LsConfig {
     }
     // didn't like too much i'll see if there is another way to do the same thing!
     fn parse(&mut self) {
-        for flag in &self.flags {
-            for c in flag.chars().skip(1) {
+        for (i, flag) in self.flags.iter().enumerate() {
+            if flag == "--" {
+                self.target_paths.extend(self.flags[i + 1..].iter().cloned().collect::<Vec<_>>());
+                break;
+            }
+            for (index, c) in flag.chars().enumerate().skip(1) {
                 match c {
                     'a' => {
                         self.a_flag_set = true;
@@ -61,6 +62,7 @@ impl LsConfig {
                     'F' => {
                         self.f_flag_set = true;
                     }
+
                     _ => {
                         eprintln!("ls: invalid option -- '{c}'");
                         std::process::exit(2);
@@ -70,9 +72,15 @@ impl LsConfig {
         }
 
         // if the target_paths is 0 push the default to targets_paths
-
+        // we need to check the current directory if exists ;)
+        // it could be removed while we are at it
         if self.target_paths.len() == 0 {
-            self.target_paths.push(".".to_string());
+            match env::current_dir() {
+                Ok(_) => {
+                    self.target_paths.push(".".to_string());
+                }
+                Err(_) => {}
+            };
         }
     }
 
@@ -98,7 +106,6 @@ impl LsConfig {
         // exists won't work here because it's part of metadata
         self.target_paths.retain(|target_path| { fs::symlink_metadata(target_path).is_ok() });
 
-    
         self.target_dirs = self.target_paths
             .iter()
             .filter(|target_path| is_directory(target_path.to_string(), self))
@@ -211,7 +218,6 @@ pub fn process_dirs(
                 return (target_path.clone(), Err(e));
             }
         };
-        
     })
 }
 

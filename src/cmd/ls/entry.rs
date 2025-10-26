@@ -38,16 +38,19 @@ pub struct Entry {
     pub metadata: Option<Metadata>,
     pub ls_config: LsConfig,
     pub path: PathBuf,
-    pub symlink_target_path: Option<PathBuf>,
-    pub target_metadata: Option<Metadata>,
+    pub sym_path: Option<PathBuf>,
+    pub sym_metadata: Option<Metadata>,
     pub target_entry: String,
+    pub errors: Vec<String>,
 }
 
 impl Entry {
     pub fn new(path: &PathBuf, ls_config: &LsConfig, target_entry: &String) -> Option<Self> {
+        let mut errors = vec![];
         let metadata = match fs::symlink_metadata(path) {
             Ok(some_metadata) => some_metadata,
             Err(e) => {
+                println!(" hhhhhhhhhhhhhhhh{}", 5); 
                 if e.kind() == ErrorKind::NotFound {
                     eprintln!(
                         "ls: cannot access '{}': No such file or directory",
@@ -55,7 +58,9 @@ impl Entry {
                     );
                     return None;
                 } else if e.kind() == ErrorKind::PermissionDenied {
-                    eprintln!("ls: cannot access '{}': Permission denied", path.to_string_lossy());
+                    errors.push(
+                        format!("ls: cannot access '{}': Permission denied", path.to_string_lossy())
+                    );
                     if *ls_config.status_code.borrow() != 2 {
                         *ls_config.status_code.borrow_mut() = 1;
                     }
@@ -63,30 +68,31 @@ impl Entry {
                         metadata: None,
                         ls_config: ls_config.clone(),
                         path: path.clone(),
-                        target_metadata: None,
-                        symlink_target_path: None,
+                        sym_metadata: None,
+                        sym_path: None,
                         target_entry: target_entry.to_string(),
+                        errors: errors,
                     });
                 } else {
                     if *ls_config.status_code.borrow() != 2 {
                         *ls_config.status_code.borrow_mut() = 1;
                     }
-                    eprintln!("{}", e);
+                    eprintln!("Error while Creating the entry: {}", e);
                     return None;
                 }
             }
         };
-        let mut symlink_target_path: Option<PathBuf> = None;
-        let mut target_metadata: Option<Metadata> = None;
+        let mut sym_path: Option<PathBuf> = None;
+        let mut sym_metadata: Option<Metadata> = None;
 
         if metadata.file_type().is_symlink() {
             match fs::read_link(path) {
                 Ok(target_path) => {
-                    symlink_target_path = Some(target_path);
+                    sym_path = Some(target_path);
                     // we need to use metadata to follow the link to the inner target ;)
                     match fs::metadata(path) {
                         Ok(some_metadata) => {
-                            target_metadata = Some(some_metadata);
+                            sym_metadata = Some(some_metadata);
                         }
                         Err(_) => {}
                     };
@@ -98,9 +104,10 @@ impl Entry {
             metadata: Some(metadata.clone()),
             ls_config: ls_config.clone(),
             path: path.clone(),
-            symlink_target_path: symlink_target_path,
-            target_metadata: target_metadata,
+            sym_path: sym_path,
+            sym_metadata: sym_metadata,
             target_entry: target_entry.clone(),
+            errors: errors,
         })
     }
 
@@ -139,17 +146,13 @@ impl Entry {
         let color_style = self.color_name_style();
         let mut file_name = apply_color(&self.get_entry_name(), color_style);
         if self.ls_config.l_flag_set {
-            if self.symlink_target_path.is_some() {
+            if self.sym_path.is_some() {
                 file_name.push_str(" -> ");
-                let target_color = match &self.target_metadata {
+                let target_color = match &self.sym_metadata {
                     Some(metadata) => Self::color_style_for_metadata(&metadata),
                     None => ColorStyle::BoldRed,
                 };
-                let target_name = self.symlink_target_path
-                    .clone()
-                    .unwrap()
-                    .to_string_lossy()
-                    .to_string();
+                let target_name = self.sym_path.clone().unwrap().to_string_lossy().to_string();
                 file_name.push_str(&apply_color(&target_name, target_color));
             }
         }
@@ -217,7 +220,7 @@ impl Entry {
             self.get_pseudo_entry_type().0
         };
 
-        let is_broken_symlink = entry_type == FileType::Symlink && self.target_metadata.is_none();
+        let is_broken_symlink = entry_type == FileType::Symlink && self.sym_metadata.is_none();
 
         if is_broken_symlink {
             return ColorStyle::BoldRed;
@@ -261,6 +264,8 @@ impl Entry {
                         (FileType::Regular, '-', ' ')
                     }
                 } else {
+                    // let metada = entry.metadata().unwrap();
+                    // println!("===>> {:?}", metada.permissions());
                     // No entries or error reading entries, handle appropriately
                     (FileType::Regular, '-', ' ')
                 }
@@ -359,10 +364,8 @@ impl Entry {
         }
         if self.ls_config.l_flag_set {
             if Self::get_entry_type(&self.metadata.clone().unwrap()).0 == FileType::Symlink {
-                if self.target_metadata.is_some() {
-                    let (_, _, suffix) = Self::get_entry_type(
-                        &self.target_metadata.clone().unwrap()
-                    );
+                if self.sym_metadata.is_some() {
+                    let (_, _, suffix) = Self::get_entry_type(&self.sym_metadata.clone().unwrap());
                     return suffix;
                 } else {
                     return ' ';

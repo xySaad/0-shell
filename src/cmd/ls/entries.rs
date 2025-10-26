@@ -21,9 +21,9 @@ impl Entries {
             // as we have access to the ls_config we can mutate the value of the status code
             // here we will need also to handle if it is a directory or just a file "" for or ...
             let group_name: String = if target_entry.is_empty() {
-                path.to_string_lossy().into_owned() // Convert Cow<str> to String
+                path.to_string_lossy().into_owned()
             } else {
-                target_entry.clone() // Already a String
+                target_entry.clone()
             };
             match Entry::new(path, ls_config, &group_name) {
                 Some(mut valid_entry) => {
@@ -49,7 +49,7 @@ impl fmt::Display for Entries {
         if self.entries.is_empty() && !self.ls_config.l_flag_set && self.ls_config.num_args == 1 {
             return Ok(());
         }
-        
+
         // eprintln!(" hnaa: {:?}", vec_max);
         if self.target_entry != "" && self.ls_config.num_args > 1 {
             writeln!(f, "{}: ", self.target_entry)?;
@@ -64,7 +64,6 @@ impl fmt::Display for Entries {
             return Ok(());
         }
 
-       
         for j in 0..self.entries.len() {
             //eprintln!("entries : {:?}", self.entries);
             let mut line = String::new();

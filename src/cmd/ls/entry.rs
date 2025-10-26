@@ -41,12 +41,10 @@ pub struct Entry {
     pub sym_path: Option<PathBuf>,
     pub sym_metadata: Option<Metadata>,
     pub target_entry: String,
-    pub errors: Vec<String>,
 }
 
 impl Entry {
     pub fn new(path: &PathBuf, ls_config: &LsConfig, target_entry: &String) -> Option<Self> {
-        let mut errors = vec![];
         let metadata = match fs::metadata(path) {
             Ok(some_metadata) => some_metadata,
             Err(e) => {
@@ -57,9 +55,8 @@ impl Entry {
                     );
                     return None;
                 } else if e.kind() == ErrorKind::PermissionDenied {
-                    errors.push(
-                        format!("ls: cannot access '{}': Permission denied", path.to_string_lossy())
-                    );
+                    println!("ls: cannot access '{}': Permission denied", path.to_string_lossy());
+
                     if *ls_config.status_code.borrow() != 2 {
                         *ls_config.status_code.borrow_mut() = 1;
                     }
@@ -70,7 +67,6 @@ impl Entry {
                         sym_metadata: None,
                         sym_path: None,
                         target_entry: target_entry.to_string(),
-                        errors: errors,
                     });
                 } else {
                     if *ls_config.status_code.borrow() != 2 {
@@ -106,7 +102,6 @@ impl Entry {
             sym_path: sym_path,
             sym_metadata: sym_metadata,
             target_entry: target_entry.clone(),
-            errors: errors,
         })
     }
 
@@ -249,23 +244,38 @@ impl Entry {
         }
     }
 
-
-
-    // does not work for now !!! 
+    // does not work for now !!!
     pub fn get_pseudo_entry_type(&self) -> (FileType, char, char) {
         // we need the absolute path otherwise it worn't work :)
-
+        if
+            self.path.to_string_lossy().to_string() ==
+                Path::new(&self.target_entry).join(".").to_string_lossy().to_string() ||
+            self.path.to_string_lossy().to_string() ==
+                Path::new(&self.target_entry).join("..").to_string_lossy().to_string()
+        {
+            return (FileType::Directory, 'd', '/');
+        }
         match fs::read_dir(self.path.clone().parent().unwrap()) {
             Ok(mut entries) => {
                 // Get the first entry or handle empty directory as needed
-                for entry in entries {
 
-                    if entry.as_ref().unwrap().file_type().unwrap().is_symlink() {
-                        return (FileType::Symlink, 'l', ' ');
-                    } else if entry.as_ref().unwrap().file_type().unwrap().is_dir() {
-                        return (FileType::Directory, 'd', '/');
-                    } else {
-                        return (FileType::Regular, '-', ' ');
+                for entry in entries {
+                    if entry.as_ref().unwrap().path() == self.path {
+                        if entry.as_ref().unwrap().file_type().unwrap().is_symlink() {
+                            return (FileType::Symlink, 'l', ' ');
+                        } else if entry.as_ref().unwrap().file_type().unwrap().is_dir() {
+                            return (FileType::Directory, 'd', '/');
+                        } else if entry.as_ref().unwrap().file_type().unwrap().is_fifo() {
+                            return (FileType::NamedPipe, 'p', '|');
+                        } else if entry.as_ref().unwrap().file_type().unwrap().is_socket() {
+                            return (FileType::NamedPipe, 'p', '|');
+                        } else if entry.as_ref().unwrap().file_type().unwrap().is_char_device() {
+                            return (FileType::NamedPipe, 'c', ' ');
+                        } else if entry.as_ref().unwrap().file_type().unwrap().is_block_device() {
+                            return (FileType::NamedPipe, 'b', ' ');
+                        } else {
+                            return (FileType::Regular, '-', ' ');
+                        }
                     }
                 }
                 return (FileType::Regular, '-', ' ');

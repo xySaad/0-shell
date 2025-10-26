@@ -9,7 +9,11 @@ pub fn cd(args: &[String]) -> i32 {
     }
 
     let current_pwd = env::var("PWD").unwrap_or("/".to_string());
-    let target = args[0].clone();
+    let target = if args.is_empty() {
+        "".to_string()
+    } else {
+        args[0].clone()
+    };
 
     match target.as_str() {
         "-" => {
@@ -41,11 +45,11 @@ pub fn cd(args: &[String]) -> i32 {
 
         other => {
 
-            // Case "~"
-            if args.is_empty() || args[0] == "--" {
+            // Case "~" similar
+            if other == "" || other == "--" {
                 let home  = env::var("HOME").unwrap_or(String::from("/"));
 
-                match change_dir(&home, &current_pwd, "~") {
+                match change_dir(&home, &current_pwd, other) {
                     Ok(_) => (),
                     Err(e) => {
                         eprintln!("{}", e);

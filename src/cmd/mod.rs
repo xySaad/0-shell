@@ -6,5 +6,6 @@ pub mod cd;
 pub mod pwd;
 pub mod ls; 
 pub mod mkdir;
+pub mod cat;
 
 pub use echo::echo;

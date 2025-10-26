@@ -2,8 +2,6 @@ use std::env;
 use std::path::{Path, PathBuf};
 use crate::utils::error::clear_error;
 
-// // path = "~/home".to_string(); // handle in parser +++
-
 pub fn cd(args: &[String]) -> i32 {
     if args.len() > 1 {
         println!("0-shell: cd: too many arguments");

@@ -3,21 +3,18 @@ use chrono_tz::Africa::Casablanca;
 use libc::{ major, minor };
 use std::fs::{ self, Metadata };
 use std::io::{ ErrorKind };
-use std::os::linux::fs::MetadataExt as LinuxMetadataExt;
 use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
 use std::path::{ PathBuf };
 use users::{ get_group_by_gid, get_user_by_uid };
 use std::path::Path;
 
-
 use super::{ ls_config::LsConfig, utils::{ apply_color } };
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(PartialEq)]
 pub enum FileType {
     Regular,
     Directory,
     Symlink,
-    BrokenSymlink,
     Executable,
     CharDevice,
     BlockDevice,
@@ -196,11 +193,15 @@ impl Entry {
         if self.path.to_string_lossy().to_string() == self.target_entry && self.path.is_absolute() {
             return self.path.to_string_lossy().to_string();
         }
-        if self.path == Path::new(&self.target_entry).join(".") {
-            return ".".to_string()
+        // in this case we are obliged to convert to string as for Cargo.toml == Cargo.toml/. in PATH
+        if
+            self.path.to_string_lossy().to_string() ==
+            Path::new(&self.target_entry).join(".").to_string_lossy().to_string()
+        {
+            return ".".to_string();
         }
-         if self.path == Path::new(&self.target_entry).join("..") {
-            return "..".to_string()
+        if self.path == Path::new(&self.target_entry).join("..") {
+            return "..".to_string();
         }
 
         self.path
@@ -228,7 +229,6 @@ impl Entry {
             FileType::BlockDevice | FileType::CharDevice | FileType::NamedPipe =>
                 ColorStyle::BoldYellow,
             FileType::Symlink => ColorStyle::CyanBold,
-            FileType::BrokenSymlink => ColorStyle::BoldRed,
             FileType::Socket => ColorStyle::BoldMagenta,
             _ => ColorStyle::BrightWhite,
         }
@@ -317,58 +317,39 @@ impl Entry {
         let (_, symbol, _) = Self::get_entry_type(&self.metadata.clone().unwrap().clone());
         let mode = self.metadata.clone().unwrap().permissions().mode();
 
-        let is_mode = |bit| (mode & bit) != 0;
+        let mut perms = String::with_capacity(10);
+        perms.push(symbol);
 
-        let owner_read = if is_mode(0o400) { 'r' } else { '-' };
-        let owner_write = if is_mode(0o200) { 'w' } else { '-' };
-        let owner_exec = if is_mode(0o100) {
-            if is_mode(0o4000) { 's' } else { 'x' }
-        } else {
-            if is_mode(0o4000) { 'S' } else { '-' }
-        };
-
-        // Group permissions
-        let group_read = if is_mode(0o040) { 'r' } else { '-' };
-        let group_write = if is_mode(0o020) { 'w' } else { '-' };
-        let group_exec = if is_mode(0o010) {
-            if is_mode(0o2000) { 's' } else { 'x' }
-        } else {
-            if is_mode(0o2000) { 'S' } else { '-' }
-        };
-
-        let other_read = if is_mode(0o004) { 'r' } else { '-' };
-        let other_write = if is_mode(0o002) { 'w' } else { '-' };
-        let other_exec = if is_mode(0o001) {
-            if is_mode(0o1000) { 't' } else { 'x' }
-        } else {
-            if is_mode(0o1000) { 'T' } else { '-' }
-        };
-
-        let permissions = vec![
-            owner_read,
-            owner_write,
-            owner_exec,
-            group_read,
-            group_write,
-            group_exec,
-            other_read,
-            other_write,
-            other_exec
+        let perm_bits = [
+            (0o400, 0o200, 0o100, 0o4000, 's', 'S'), //  r, w, x, setuid
+            (0o040, 0o020, 0o010, 0o2000, 's', 'S'),
+            (0o004, 0o002, 0o001, 0o1000, 't', 'T'),
         ];
 
-        let mut permissions = symbol.to_string() + &permissions.iter().collect::<String>();
-        let attr_len = unsafe {
+        for &(read, write, exec, special, exec_char, no_exec_char) in &perm_bits {
+            perms.push(if (mode & read) != 0 { 'r' } else { '-' });
+            perms.push(if (mode & write) != 0 { 'w' } else { '-' });
+            perms.push(
+                if (mode & exec) != 0 {
+                    if (mode & special) != 0 { exec_char } else { 'x' }
+                } else {
+                    if (mode & special) != 0 { no_exec_char } else { '-' }
+                }
+            );
+        }
+
+        let xattr = unsafe {
             libc::listxattr(
                 self.path.to_str().unwrap_or("").as_ptr() as *const _,
                 std::ptr::null_mut(),
                 0
             )
         };
-        if attr_len > 0 {
-            permissions.push('+');
+        if xattr > 0 {
+            perms.push('+');
         }
 
-        permissions
+        perms
     }
 
     pub fn append_file_type_indicator(&self) -> char {

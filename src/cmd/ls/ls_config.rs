@@ -4,7 +4,11 @@ use std::io::{ ErrorKind };
 use std::fs::{ self };
 use std::cell::RefCell;
 
-use super::{ entries::{ Entries }, entry::{ FileType, Entry }, utils::{ is_broken_link, is_dir } };
+use super::{
+    entries::{ Entries },
+    entry::{ FileType, Entry },
+    utils::{ is_directory,is_file},
+};
 
 #[derive(Debug, Eq, Clone, PartialEq)]
 pub struct LsConfig {
@@ -94,28 +98,15 @@ impl LsConfig {
         // exists won't work here because it's part of metadata
         self.target_paths.retain(|target_path| { fs::symlink_metadata(target_path).is_ok() });
 
-        // filter out the dirs and the files and then sort them alphabeticallly
-        // things got messier here :)
+    
         self.target_dirs = self.target_paths
             .iter()
-            .filter(|target_path| {
-                (fs::symlink_metadata(target_path).unwrap().is_dir() &&
-                    !fs::symlink_metadata(target_path).unwrap().is_symlink()) ||
-                    (fs::symlink_metadata(target_path).unwrap().is_symlink() && is_dir(target_path.to_string()) &&
-                        !is_broken_link(target_path.to_string()) &&
-                        !self.l_flag_set &&
-                        !self.f_flag_set)
-            })
+            .filter(|target_path| is_directory(target_path.to_string(), self))
             .cloned()
             .collect();
         self.target_files = self.target_paths
             .iter()
-            .filter(|target_path| {
-                fs::symlink_metadata(target_path).unwrap().is_file() ||
-                    (fs::symlink_metadata(target_path).unwrap().is_symlink() &&
-                        (self.l_flag_set || self.f_flag_set) || !is_dir(target_path.to_string())) ||
-                    is_broken_link(target_path.to_string())
-            })
+            .filter(|target_path| is_file(target_path.to_string(), self))
             .cloned()
             .collect();
         self.target_dirs.sort_by(|a, b| a.to_ascii_lowercase().cmp(&b.to_ascii_lowercase()));
@@ -128,9 +119,8 @@ impl LsConfig {
             .map(|target_path| Path::new(target_path).to_path_buf())
             .collect();
         let target_path = "".to_string();
-
         let entries = Entries::new(&files, self, &target_path);
-        println!("{}", entries);
+        print!("{}", entries);
         if self.target_dirs.len() != 0 {
             println!();
         }
@@ -144,21 +134,10 @@ impl LsConfig {
         }
         let mut iter = process_dirs(self).into_iter().peekable();
         while let Some((target_path, resulted_entry)) = iter.peek() {
-            let is_directory = match
-                Entry::new(&Path::new(&target_path).to_path_buf(), self, &target_path)
-            {
-                Some(valid_entry) =>
-                    match valid_entry.metadata {
-                        Some(metadata) => Entry::get_entry_type(&metadata).0 == FileType::Directory,
-                        None => valid_entry.get_pseudo_entry_type().0 == FileType::Directory,
-                    }
-                None => false,
-            };
-            //println!("{:?}", resulted_entry);
             match resulted_entry {
                 Ok(entries_vec) => {
                     let entries = Entries::new(&entries_vec, self, &target_path);
-                    println!("{}", entries);
+                    print!("{}", entries);
                 }
                 Err(e) => {
                     match e.kind() {
@@ -189,10 +168,6 @@ pub fn process_dirs(
 ) -> impl Iterator<Item = (String, Result<Vec<PathBuf>, io::Error>)> {
     ls_config.target_dirs.iter().map(|target_path| {
         let path = Path::new(target_path);
-        // if
-        //     (path.is_symlink() && !ls_config.l_flag_set && !ls_config.f_flag_set) ||
-        //     (path.is_dir() && !path.is_symlink())
-        // {
         match fs::read_dir(target_path) {
             Ok(entries) => {
                 let mut paths = Vec::new();
@@ -236,9 +211,7 @@ pub fn process_dirs(
                 return (target_path.clone(), Err(e));
             }
         };
-        // } else {
-        //     return (target_path.clone(), Ok(vec![Path::new(target_path).to_path_buf()]));
-        // }
+        
     })
 }
 

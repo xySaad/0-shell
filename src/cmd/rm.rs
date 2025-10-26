@@ -1,4 +1,4 @@
-use std::{env, fs, path::PathBuf};
+use std::{env, fs, ops::Index, path::PathBuf};
 use crate::utils::error::clear_error;
 
 pub fn rm(args: &[String]) -> i32 {
@@ -6,10 +6,49 @@ pub fn rm(args: &[String]) -> i32 {
         eprintln!("rm: missing operand");
         return 1;
     }
+    println!("{:?}", args);
+    let mut recursive = false;
+    let end_opt = args.iter().position(|val| val == &("--").to_string());
+    // let mut options: Vec<&String> = vec![];
+    let mut paths: Vec<&String> = vec![];
 
-    let recursive = args.contains(&("-r").to_string());
-    let paths: Vec<&String> = args.iter().filter(|iteam| *iteam != "-r").collect();
-
+    for (i, val) in args.iter().enumerate() {
+        match end_opt {
+            Some(index) => {
+                match index != i {
+                    true =>  {
+                        if index < i {
+                            if val != "-" && val.starts_with("-") {
+                                eprintln!("rm: unrecognized option '{}'", val);
+                                return 1;
+                            }
+                            
+                            else { paths.push(val); }
+                        }
+                        
+                        else { paths.push(val); }
+                    },
+                    _ => ()
+                }
+            },
+            None => {
+                match &(*val.to_string()) {
+                    "-r" => recursive = true,
+                    _ => {
+                        if val != "-" && val.starts_with("-") {
+                            eprintln!("rm: unrecognized option '{}'", val);
+                            return 1;
+                        }
+                        
+                        else { paths.push(val); }
+                    }
+                };
+            }
+        };
+    }
+    
+    
+    
     if paths.is_empty() {
         eprintln!("rm: missing operand");
         return 1;

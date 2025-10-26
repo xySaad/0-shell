@@ -75,9 +75,6 @@ pub fn rm(args: &[String]) -> i32 {
 // # Remove all files except specific ones
 // rm !(important.txt)  # Requires extglob option
 
-// # Remove all files in current directory (dangerous!)
-// rm *
-
 // # Delete hidden files
 // rm .*
 // rm .hidden_file

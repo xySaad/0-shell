@@ -259,12 +259,10 @@ impl Entry {
             Ok(mut entries) => {
                 // Get the first entry or handle empty directory as needed
                 for entry in entries {
-                    if entry.as_ref().unwrap().path() != self.path {
-                        continue;
-                    }
-                    if entry.as_ref().unwrap().path().is_symlink() {
+
+                    if entry.as_ref().unwrap().file_type().unwrap().is_symlink() {
                         return (FileType::Symlink, 'l', ' ');
-                    } else if entry.as_ref().unwrap().path().is_dir() {
+                    } else if entry.as_ref().unwrap().file_type().unwrap().is_dir() {
                         return (FileType::Directory, 'd', '/');
                     } else {
                         return (FileType::Regular, '-', ' ');

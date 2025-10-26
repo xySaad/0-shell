@@ -73,5 +73,5 @@ pub fn is_file(target_path: String, ls_config: &LsConfig) -> bool {
         }
     }
 
-    sym_metatada.is_file() 
+    sym_metatada.is_file() || !is_dir(path)
 }

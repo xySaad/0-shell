@@ -45,7 +45,7 @@ pub struct Entry {
 
 impl Entry {
     pub fn new(path: &PathBuf, ls_config: &LsConfig, target_entry: &String) -> Option<Self> {
-        let metadata = match fs::metadata(path) {
+        let metadata = match fs::symlink_metadata(path) {
             Ok(some_metadata) => some_metadata,
             Err(e) => {
                 if e.kind() == ErrorKind::NotFound {

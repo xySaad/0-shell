@@ -105,17 +105,20 @@ impl LsConfig {
         });
         // exists won't work here because it's part of metadata
         self.target_paths.retain(|target_path| { fs::symlink_metadata(target_path).is_ok() });
+        
 
         self.target_dirs = self.target_paths
             .iter()
             .filter(|target_path| is_directory(target_path.to_string(), self))
             .cloned()
             .collect();
+         
         self.target_files = self.target_paths
             .iter()
             .filter(|target_path| is_file(target_path.to_string(), self))
             .cloned()
             .collect();
+        
         self.target_dirs.sort_by(|a, b| a.to_ascii_lowercase().cmp(&b.to_ascii_lowercase()));
         self.target_files.sort_by(|a, b| a.to_ascii_lowercase().cmp(&b.to_ascii_lowercase()));
     }

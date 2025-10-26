@@ -11,25 +11,9 @@ pub fn cd(args: &[String]) -> i32 {
     }
 
     let current_pwd = env::var("PWD").unwrap_or("/".to_string());
-    let target = if args.is_empty() || args[0] == "--" {
-        "~".to_string()
-    } else {
-        args[0].clone()
-    };
+    let target = args[0].clone();
 
     match target.as_str() {
-        "~" => {
-            let home  = env::var("HOME").unwrap_or(String::from("/"));
-
-            match change_dir(&home, &current_pwd, "~") {
-                Ok(_) => (),
-                Err(e) => {
-                    eprintln!("{}", e);
-                    return 1;
-                }
-            };
-        }
-
         "-" => {
             let oldpwd = env::var("OLDPWD").unwrap_or(String::from(&current_pwd));
 
@@ -58,20 +42,37 @@ pub fn cd(args: &[String]) -> i32 {
         }
 
         other => {
-            let pwd = Path::new(&current_pwd);
-            let abs_path = if Path::new(other).is_absolute() {
-                PathBuf::from(other)
-            } else {
-                pwd.join(other)
-            };
 
-            match change_dir(abs_path.to_str().unwrap(), &current_pwd, other) { // unwrap !!
-                Ok(_) => (),
-                Err(e) => {
-                    eprintln!("{}", e);
-                    return 1;
-                }
-            };
+            // Case "~"
+            if args.is_empty() || args[0] == "--" {
+                let home  = env::var("HOME").unwrap_or(String::from("/"));
+
+                match change_dir(&home, &current_pwd, "~") {
+                    Ok(_) => (),
+                    Err(e) => {
+                        eprintln!("{}", e);
+                        return 1;
+                    }
+                };
+            }
+
+            // Simple case
+            else {
+                let pwd = Path::new(&current_pwd);
+                let abs_path = if Path::new(other).is_absolute() {
+                    PathBuf::from(other)
+                } else {
+                    pwd.join(other)
+                };
+
+                match change_dir(abs_path.to_str().unwrap(), &current_pwd, other) { // unwrap !!
+                    Ok(_) => (),
+                    Err(e) => {
+                        eprintln!("{}", e);
+                        return 1;
+                    }
+                };
+            }
         }
     };
 

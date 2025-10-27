@@ -28,7 +28,7 @@ pub fn rm(mut args: &[String]) -> i32 {
                             eprintln!("rm: unrecognized option '{}'", opperand);
                             return 1;
                         } else if char != 'r'  {
-                            eprintln!("rm: invalid option -- '{}'", opperand);
+                            eprintln!("rm: invalid option -- '{}'", char);
                             return 1;
                         } else {
                             recursive = true;
@@ -38,58 +38,7 @@ pub fn rm(mut args: &[String]) -> i32 {
                 else { paths.push(opperand.to_string()) }
             }
         };
-
-        // "-r" => recursive = true,
-        // option if option.starts_with("-") && option.len() > 1 => {
-        //     eprintln!("rm: unrecognized option '{}'", option);
-        // }
     }
-
-    // for (i, val) in args.iter().enumerate() {
-    //     match limiter_idx {
-    //         Some(index) => {
-    //             match index != i {
-    //                 true => {
-    //                     if index < i {
-    //                         match &(*val.to_string()) {
-    //                             "-r" | "--r" => recursive = true,
-    //                             "---" => (),
-    //                             _ => {
-    //                                 if val != "-" && val.starts_with("-") {
-    //                                     for (i, char) in val.char_indices() {
-    //                                         if i == 0 {
-    //                                             continue;
-    //                                         } else if i != 0 && char != 'r'  {
-    //                                             eprintln!("rm: invalid option -- '{}'", val);
-    //                                         } else {
-    //                                             eprintln!("rm: unrecognized option '{}'", val);
-    //                                         }
-    //                                         return 1;
-    //                                     }
-    //                                 }
-    //                                 else { paths.push(val); }
-    //                             }
-    //                         };
-    //                     }
-    //                     else { paths.push(val); }  
-    //                 },
-    //                 _ => ()
-    //             }
-    //         },
-    //         None => {
-    //             match &(*val.to_string()) {
-    //                 "-r" => recursive = true,
-    //                 _ => {
-    //                     if val != "-" && val.starts_with("-") {
-    //                         eprintln!("rm: unrecognized option '{}'", val);
-    //                         return 1;
-    //                     }
-    //                     else { paths.push(val); }
-    //                 }
-    //             };
-    //         }
-    //     };
-    // }
 
     if paths.is_empty() {
         eprintln!("rm: missing operand");

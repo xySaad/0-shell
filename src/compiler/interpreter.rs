@@ -63,6 +63,9 @@ impl<R: Fn() -> String, E: Fn(Command) -> i32> Interpreter<R, E> {
                         Operator::Or => todo!(),
                         Operator::Redirection(r) => {
                             command.handle_redirection(r, self.node_to_string(seq.next().unwrap()));
+                            let None = command.error else {
+                                return command;
+                            };
                         }
                     }
                 }

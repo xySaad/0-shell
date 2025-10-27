@@ -5,7 +5,11 @@ use std::fs::{ self };
 use std::cell::RefCell;
 use std::env;
 
-use super::{ entries::{ Entries }, entry::{ FileType, Entry }, utils::{ is_directory, is_file } };
+use super::{
+    entries::{ Entries },
+    entry::{ FileType, Entry },
+    utils::{ is_directory, is_file, sort_entries },
+};
 
 #[derive(Debug, Eq, Clone, PartialEq)]
 pub struct LsConfig {
@@ -49,6 +53,7 @@ impl LsConfig {
         for (i, flag) in self.flags.iter().enumerate() {
             if flag == "--" {
                 self.target_paths.extend(self.flags[i + 1..].iter().cloned().collect::<Vec<_>>());
+                self.num_args = self.target_paths.len();
                 break;
             }
             for (index, c) in flag.chars().enumerate().skip(1) {
@@ -105,22 +110,22 @@ impl LsConfig {
         });
         // exists won't work here because it's part of metadata
         self.target_paths.retain(|target_path| { fs::symlink_metadata(target_path).is_ok() });
-        
 
         self.target_dirs = self.target_paths
             .iter()
             .filter(|target_path| is_directory(target_path.to_string(), self))
             .cloned()
             .collect();
-         
+
         self.target_files = self.target_paths
             .iter()
             .filter(|target_path| is_file(target_path.to_string(), self))
             .cloned()
             .collect();
-        
-        self.target_dirs.sort_by(|a, b| a.to_ascii_lowercase().cmp(&b.to_ascii_lowercase()));
-        self.target_files.sort_by(|a, b| a.to_ascii_lowercase().cmp(&b.to_ascii_lowercase()));
+
+        // remove the spacial characters from the files before procedding to the sort
+        sort_entries(&mut self.target_dirs);
+        sort_entries(&mut self.target_files);
     }
 
     pub fn process_files(&self) {
@@ -193,11 +198,18 @@ pub fn process_dirs(
                 }
                 paths.sort_by(|a, b| {
                     let binding_a = a.clone().file_name().unwrap().to_string_lossy().to_string();
-                    let entry_a = binding_a.strip_prefix(".").unwrap_or(&binding_a);
+                    let cleaned_a: String = binding_a
+                        .chars()
+                        .filter(|c| !c.is_ascii_punctuation())
+                        .collect();
+
                     let binding_b = b.clone().file_name().unwrap().to_string_lossy().to_string();
 
-                    let entry_b = binding_b.strip_prefix(".").unwrap_or(&binding_b);
-                    entry_a.to_lowercase().cmp(&entry_b.to_lowercase())
+                    let cleaned_b: String = binding_b
+                        .chars()
+                        .filter(|c| !c.is_ascii_punctuation())
+                        .collect();
+                    cleaned_a.to_ascii_lowercase().cmp(&cleaned_b.to_ascii_lowercase())
                 });
 
                 let paths = if ls_config.a_flag_set {

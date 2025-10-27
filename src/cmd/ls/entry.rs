@@ -1,6 +1,6 @@
 use chrono::{ DateTime, Duration, Utc };
 use chrono_tz::Africa::Casablanca;
-use libc::{ major, minor };
+use libc::{ major, minor , llistxattr};
 use std::fs::{ self, Metadata };
 use std::io::{ ErrorKind };
 use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt, DirEntryExt };
@@ -360,6 +360,7 @@ impl Entry {
                 0
             )
         };
+        //println!("x attr: {}", xattr );
         if xattr > 0 {
             perms.push('+');
         }

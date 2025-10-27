@@ -75,3 +75,22 @@ pub fn is_file(target_path: String, ls_config: &LsConfig) -> bool {
 
     sym_metatada.is_file() || !is_dir(path)
 }
+
+// fn to sort the files and the folders
+pub fn sort_entries( files: &mut Vec<String>) {
+    files.sort_by(|a, b| {
+        let cleaned_a: String = a
+            .chars()
+            .filter(|c| !c.is_ascii_punctuation())
+            .collect();
+
+        let cleaned_b: String = b
+            .chars()
+            .filter(|c| !c.is_ascii_punctuation())
+            .collect();
+
+
+        
+        cleaned_a.to_ascii_lowercase().cmp(&cleaned_b.to_ascii_lowercase())
+    });
+}

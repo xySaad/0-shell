@@ -10,26 +10,37 @@ pub fn rm(args: &[String]) -> i32 {
 
     let mut recursive = false;
     let mut paths: Vec<&String> = Vec::new();
-    let end_opt = args.iter().position(|val| val == &("--").to_string());
+    let limiter_idx = args.iter().position(|val| val == &("--").to_string());
+
+    
 
     for (i, val) in args.iter().enumerate() {
-        match end_opt {
+        match limiter_idx {
             Some(index) => {
                 match index != i {
-                    true =>  {
-                        match &(*val.to_string()) {
-                            "-r" => recursive = true,
-                            _ => {
-                                if index < i {
+                    true => {
+                        if index < i {
+                            match &(*val.to_string()) {
+                                "-r" | "--r" => recursive = true,
+                                "---" => (),
+                                _ => {
                                     if val != "-" && val.starts_with("-") {
-                                        eprintln!("rm: unrecognized option '{}'", val);
-                                        return 1;
+                                        for (i, char) in val.char_indices() {
+                                            if i == 0 {
+                                                continue;
+                                            } else if i != 0 && char != 'r'  {
+                                                eprintln!("rm: invalid option -- '{}'", val);
+                                            } else {
+                                                eprintln!("rm: unrecognized option '{}'", val);
+                                            }
+                                            return 1;
+                                        }
                                     }
                                     else { paths.push(val); }
                                 }
-                                else { paths.push(val); }
-                            }
-                        };
+                            };
+                        }
+                        else { paths.push(val); }  
                     },
                     _ => ()
                 }
@@ -95,5 +106,5 @@ pub fn rm(args: &[String]) -> i32 {
     0
 }
 
-// # Remove all files except specific ones
-// rm !(important.txt)  # Requires extglob option
+// Try to remove file without permission
+// Error: permission denied

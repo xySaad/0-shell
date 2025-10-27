@@ -1,5 +1,6 @@
 use std::fs;
 use std::io::{self, BufRead, Write};
+use crate::utils::error::{clear_error};
 
 // Reads from standard input line by line and writes it to standard output
 fn read_input() {
@@ -26,7 +27,7 @@ pub fn cat(args: &[String]) -> i32 {
 
     if args.is_empty() {
         read_input();
-        return 0; 
+        return 0;
     }
 
     for (_, filename) in args.iter().enumerate() {
@@ -34,14 +35,18 @@ pub fn cat(args: &[String]) -> i32 {
             read_input();
         } else {
             match fs::read_to_string(filename) {
-                Ok(content) => print!("{}\n", content),
+                Ok(content) => print!("{}", content),
                 Err(e) => {
-                    eprintln!("cat: {}: {}", filename, e);
+                    eprintln!("cat: {}: {}", filename, clear_error(e));
                     all_ok = false
                 }
             }
         }
     }
 
-    if all_ok { 0 } else { 1 }
+    if all_ok {
+        0
+    } else {
+        1
+    }
 }

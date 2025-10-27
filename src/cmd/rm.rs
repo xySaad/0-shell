@@ -23,7 +23,7 @@ pub fn rm(mut args: &[String]) -> i32 {
             "---" => (),
             _ => {
                 if opperand != "-" && opperand.starts_with("-") {
-                    for (i, char) in opperand[1..].char_indices() {
+                    for char in opperand[1..].chars() {
                         if char == '-' {
                             eprintln!("rm: unrecognized option '{}'", opperand);
                             return 1;

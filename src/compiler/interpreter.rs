@@ -44,7 +44,7 @@ impl<R: Fn() -> String, E: Fn(Command) -> i32> Interpreter<R, E> {
         let mut command = Command::default();
         while let Some(node) = seq.next() {
             // delimiters like ';' and '\n' outside
-            if let Node::Delimiter | Node::Operator(Operator::SemiColon) = node {
+            if let Node::Delimiter = node {
                 break;
             }
 
@@ -55,15 +55,10 @@ impl<R: Fn() -> String, E: Fn(Command) -> i32> Interpreter<R, E> {
                 }
 
                 if let Some(_) = seq.peek() {
-                    match op {
-                        Operator::SemiColon => (),
-                        Operator::And => todo!(),
-                        Operator::AndIf => todo!(),
-                        Operator::Pipe => todo!(),
-                        Operator::Or => todo!(),
-                        Operator::Redirection(r) => {
-                            command.handle_redirection(r, self.node_to_string(seq.next().unwrap()));
-                        }
+                    if let Operator::Redirection(r) = op {
+                        command.handle_redirection(r, self.node_to_string(seq.next().unwrap()));
+                    } else {
+                        break;
                     }
                 }
                 //TODO: return parse error

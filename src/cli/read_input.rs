@@ -2,6 +2,7 @@ use crate::{
     cli::{self, run_command},
     compiler::interpreter::Interpreter,
 };
+use core::error;
 use std::{
     io::{Write, stderr, stdin},
     process::exit,
@@ -21,17 +22,26 @@ pub fn read_line() -> String {
 }
 
 pub fn read_input() {
-    let inter = Interpreter::new(read_line);
+    let inter = Interpreter::new(read_line, run_command);
 
     loop {
         let input = read_line();
-        let command = inter.parse_line(&input);
-        if command.name.trim().is_empty() {
+        if input.trim().is_empty() {
             let _ = cli::print("$ ");
             continue;
         }
 
-        let exit_status = run_command(command);
+        let commands = inter.parse_line(&input);
+        for command in commands {
+            if let Some(error) = command.error {
+                eprint!("{error}");
+                continue;
+            }
+            if command.name.trim().is_empty() {
+                continue;
+            }
+            let exit_status = run_command(command);
+        }
         let _ = cli::print("$ ");
     }
 }

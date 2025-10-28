@@ -67,6 +67,8 @@ pub fn cd(args: &[String]) -> i32 {
                     pwd.join(other)
                 };
 
+                // solve trash case
+
                 match change_dir(abs_path.to_str().unwrap(), &current_pwd, other) { // unwrap !!
                     Ok(_) => (),
                     Err(e) => {

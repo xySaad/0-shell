@@ -6,7 +6,6 @@ pub fn rm(mut args: &[String]) -> i32 {
         eprintln!("rm: missing operand");
         return 1;
     }
-    println!("{:?}", args);
 
     let mut recursive = false;
     let mut paths: Vec<String> = Vec::new();
@@ -51,12 +50,12 @@ pub fn rm(mut args: &[String]) -> i32 {
 
         match arg.as_str() {
             "." | ".." | "/" => {
-                eprintln!("rm: refusing to remove '{}' directory: skipping", arg);
+                eprintln!("rm: refusing to remove '{}' directory", arg);
                 continue;
             },
             _ => {
                 if arg.ends_with("/.") || arg.ends_with("/..") || arg.ends_with("/./") || arg.ends_with("/../") {
-                    eprintln!("rm: refusing to remove '{}' directory: skipping", arg);
+                    eprintln!("rm: refusing to remove '{}' directory", arg);
                     continue;
                 }
             }

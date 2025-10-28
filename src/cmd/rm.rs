@@ -51,14 +51,12 @@ pub fn rm(mut args: &[String]) -> i32 {
 
         match arg.as_str() {
             "." | ".." | "/" => {
-                // rm: refusing to remove '.' or '..' directory: skipping
-                eprintln!("rm: refusing to remove '{}' directory", arg);
+                eprintln!("rm: refusing to remove '{}' directory: skipping", arg);
                 continue;
             },
             _ => {
                 if arg.ends_with("/.") || arg.ends_with("/..") || arg.ends_with("/./") || arg.ends_with("/../") {
-                    // rm: refusing to remove '.' or '..' directory: skipping
-                    eprintln!("rm: refusing to remove '{}' directory", arg);
+                    eprintln!("rm: refusing to remove '{}' directory: skipping", arg);
                     continue;
                 }
             }

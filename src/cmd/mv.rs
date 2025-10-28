@@ -1,5 +1,7 @@
 use std::fs;
 use std::path::Path;
+use crate::utils::error::{clear_error};
+
 
 // we handle just one by one here , one source to the destination
 fn move_one(source: &Path, dest: &Path) -> bool {
@@ -21,7 +23,7 @@ fn move_one(source: &Path, dest: &Path) -> bool {
 
     if dest.exists() && !dest.is_dir() {
         if let Err(e) = fs::remove_file(dest) {
-            eprintln!("mv: cannot remove '{}': {}", dest.display(), e);
+            eprintln!("mv: cannot remove '{}': {}", dest.display(), clear_error(e));
             return false;
         }
     }
@@ -33,7 +35,7 @@ fn move_one(source: &Path, dest: &Path) -> bool {
                 "mv: cannot move '{}' to '{}': {}",
                 source.display(),
                 dest.display(),
-                e
+                clear_error(e)
             );
             false
         }

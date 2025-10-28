@@ -1,19 +1,18 @@
 use std::fs;
 use std::path::Path;
 
+// we handle just one by one here , one source to the destination
 fn move_one(source: &Path, dest: &Path) -> bool {
     if !source.exists() {
         eprintln!("mv: cannot stat '{}': No such file or directory", source.display());
         return false;
     }
 
-    // Prevent overwriting a directory with a non-directory
     if dest.exists() && dest.is_dir() && !source.is_dir() {
         eprintln!("mv: cannot overwrite directory '{}' with non-directory", dest.display());
         return false;
     }
 
-    // Remove existing file at destination (mimics mv's overwrite behavior)
     if dest.exists() && !dest.is_dir() {
         if let Err(e) = fs::remove_file(dest) {
             eprintln!("mv: cannot remove '{}': {}", dest.display(), e);
@@ -30,6 +29,7 @@ fn move_one(source: &Path, dest: &Path) -> bool {
     }
 }
 
+// this function implements the logic of mv commands
 pub fn mv(args: &[String]) -> i32 {
     if args.is_empty() {
         eprintln!("mv: missing file operand");
@@ -44,7 +44,6 @@ pub fn mv(args: &[String]) -> i32 {
     let sources = &args[..args.len() - 1];
     let mut all_ok = true;
 
-    // Case 1: One source, dest not necessarily a directory
     if sources.len() == 1 {
         let source = Path::new(&sources[0]);
         if dest.is_dir() {
@@ -54,7 +53,6 @@ pub fn mv(args: &[String]) -> i32 {
         return if move_one(source, dest) { 0 } else { 1 };
     }
 
-    // Case 2: Multiple sources, dest must be a directory
     if !dest.is_dir() {
         eprintln!("mv: target '{}' is not a directory", dest.display());
         return 1;

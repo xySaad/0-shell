@@ -1,14 +1,43 @@
 use std::{env, fs, path::PathBuf};
 use crate::utils::error::clear_error;
 
-pub fn rm(args: &[String]) -> i32 {
+pub fn rm(mut args: &[String]) -> i32 {
     if args.is_empty() {
         eprintln!("rm: missing operand");
         return 1;
     }
 
-    let recursive = args.contains(&("-r").to_string());
-    let paths: Vec<&String> = args.iter().filter(|iteam| *iteam != "-r").collect();
+    let mut recursive = false;
+    let mut paths: Vec<String> = Vec::new();
+    let limiter_idx = args.iter().position(|val| val == &("--").to_string());
+
+    if let Some(idx) = limiter_idx {
+        paths = args[idx + 1..].to_vec();
+        args = &args[..idx];
+    }
+
+    for opperand in args {
+        match opperand.as_str() {
+            "-r" | "--r" => recursive = true,
+            "---" => (),
+            _ => {
+                if opperand != "-" && opperand.starts_with("-") {
+                    for char in opperand[1..].chars() {
+                        if char == '-' {
+                            eprintln!("rm: unrecognized option '{}'", opperand);
+                            return 1;
+                        } else if char != 'r'  {
+                            eprintln!("rm: invalid option -- '{}'", char);
+                            return 1;
+                        } else {
+                            recursive = true;
+                        }
+                    }
+                }
+                else { paths.push(opperand.to_string()) }
+            }
+        };
+    }
 
     if paths.is_empty() {
         eprintln!("rm: missing operand");
@@ -17,7 +46,20 @@ pub fn rm(args: &[String]) -> i32 {
 
     for arg in paths {
         let mut path = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        path.push(arg);
+        path.push(&arg);
+
+        match arg.as_str() {
+            "." | ".." | "/" => {
+                eprintln!("rm: refusing to remove '{}' directory", arg);
+                continue;
+            },
+            _ => {
+                if arg.ends_with("/.") || arg.ends_with("/..") || arg.ends_with("/./") || arg.ends_with("/../") {
+                    eprintln!("rm: refusing to remove '{}' directory", arg);
+                    continue;
+                }
+            }
+        };
 
         // Check if path exist
         if path.symlink_metadata().is_err() {
@@ -55,37 +97,5 @@ pub fn rm(args: &[String]) -> i32 {
     0
 }
 
-// # Delete a single file
-// rm file.txt
-
-// # Delete multiple files
-// rm file1.txt file2.txt file3.txt
-
-// # Delete files with wildcard patterns
-// rm *.txt          # All .txt files in current directory
-// rm file*          # All files starting with "file"
-// rm *.log *.tmp    # All .log and .tmp files
-
-// # Delete a directory and all its contents (recursive)
-// rm -r folder_name
-
-// # Delete multiple directories
-// rm -r dir1 dir2 dir3
-
-// # Remove all files except specific ones
-// rm !(important.txt)  # Requires extglob option
-
-// # Remove all files in current directory (dangerous!)
-// rm *
-
-// # Delete hidden files
-// rm .*
-// rm .hidden_file
-
-// # Remove files with special characters
-// rm "file with spaces.txt"
-// rm 'file-name.txt'
-
-// # 2. Double-check with ls before rm
-// ls *.txt
-// rm *.txt
+// Try to remove file without permission
+// Error: permission denied

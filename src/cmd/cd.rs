@@ -1,6 +1,5 @@
-use std::env;
-use std::path::{Path, PathBuf};
 use crate::utils::error::clear_error;
+use std::{env, path::{Path, PathBuf}};
 
 pub fn cd(args: &[String]) -> i32 {
     if args.len() > 1 {

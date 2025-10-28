@@ -21,3 +21,11 @@ pub fn strerror(errno: c_int) -> String {
         return String::from_utf8_lossy(c_string.to_bytes()).to_string();
     }
 }
+
+pub fn clear_error(err: Error) -> String {
+    let mut msg = err.to_string();
+    if let Some(idx) = msg.find(" (os error") {
+        msg.truncate(idx);
+    }
+    msg.trim().to_string()
+}

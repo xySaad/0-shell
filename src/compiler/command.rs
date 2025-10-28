@@ -1,8 +1,11 @@
-use crate::compiler::tokens::RedirectionKind::{self, *};
+use crate::{
+    compiler::tokens::RedirectionKind::{self, *},
+    utils::error::StrError,
+};
 use libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, dup, dup2};
 use std::{
     fs::{File, OpenOptions},
-    io::{Read, Write, pipe},
+    io::{Error, Read, Write, pipe},
     os::fd::{AsRawFd, FromRawFd},
     process::exit,
     thread::{JoinHandle, spawn},
@@ -18,6 +21,7 @@ pub struct Command {
     pub name: String,
     pub args: Vec<String>,
     pub io_streams: IoStreams,
+    pub error: Option<Error>,
 }
 impl IoStreams {
     pub fn redirect(self) -> Vec<JoinHandle<()>> {
@@ -113,7 +117,7 @@ impl Command {
 
         let file = opts.open(file_name);
         if let Err(e) = file {
-            eprintln!("{e}");
+            self.error = Some(Error::new(e.kind(), format!("shell: test*: {}\n", e.str())));
             return;
         }
 
@@ -121,7 +125,7 @@ impl Command {
         match r {
             Input => io_streams.stdin.push(Box::new(file)),
             Output => io_streams.stdout.push(Box::new(file)),
-            Error => io_streams.stderr.push(Box::new(file)),
+            RedirectionKind::Error => io_streams.stderr.push(Box::new(file)),
             OutputError => {
                 unsafe {
                     let fd = dup(file.as_raw_fd());
@@ -142,6 +146,7 @@ impl Default for Command {
                 stdout: Vec::new(),
                 stderr: Vec::new(),
             },
+            error: None,
         }
     }
 }

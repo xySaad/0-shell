@@ -33,7 +33,7 @@ impl LsConfig {
             .collect();
         let targets: Vec<String> = args
             .iter()
-            .filter(|a| (!a.starts_with('-') || *a == "-"))
+            .filter(|a| !a.starts_with('-') || *a == "-")
             .cloned()
             .collect();
         Self {
@@ -56,7 +56,7 @@ impl LsConfig {
                 self.num_args = self.target_paths.len();
                 break;
             }
-            for (index, c) in flag.chars().enumerate().skip(1) {
+            for (_, c) in flag.chars().enumerate().skip(1) {
                 match c {
                     'a' => {
                         self.a_flag_set = true;

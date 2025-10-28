@@ -1,7 +1,8 @@
 use colored::Colorize;
-use std::path::{ Path, PathBuf };
-use std::ffi::OsStr;
-use std::fs;
+use std::path::{ Path };
+use std::ffi::{OsStr, c_char};
+use std::{ fs, ptr };
+use libc::{ llistxattr };
 
 use super::{ entry::ColorStyle, ls_config::LsConfig };
 
@@ -95,8 +96,19 @@ pub fn sort_entries(files: &mut Vec<String>) {
     });
 }
 
+// here to convert anything that implements the AsRef trait to String
 pub fn to_str<T: AsRef<OsStr>>(path: T) -> String {
     path.as_ref().to_string_lossy().into_owned()
 }
 
+// method to check the acl from the extra attributes
+// we need to work with llistxattr
+pub fn has_acl(path: &Path) -> bool {
+    let size = unsafe { llistxattr(path.to_str().unwrap_or("").as_ptr() as *const c_char, ptr::null_mut(), 0) };
+    // if size returns -1 (so there is no extra attribure )
+    if size > 0 {
 
+    }
+   
+    true
+}

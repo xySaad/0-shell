@@ -3,12 +3,12 @@ use chrono_tz::Africa::Casablanca;
 use libc::{ major, minor, llistxattr };
 use std::fs::{ self, Metadata };
 use std::io::{ ErrorKind };
-use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt, DirEntryExt };
+use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };
 use std::path::{ PathBuf };
 use users::{ get_group_by_gid, get_user_by_uid };
 use std::path::Path;
 
-use super::{ ls_config::LsConfig, utils::{ apply_color, to_str } };
+use super::{ ls_config::LsConfig, utils::{ apply_color, to_str, has_acl } };
 
 #[derive(PartialEq)]
 pub enum FileType {
@@ -122,15 +122,15 @@ impl Entry {
             return vec![file_name];
         }
 
-        let mut permissions = self.get_pseudo_entry_type().1.to_string();
-        permissions.push_str("?????????");
+        let (minor, major) = self.get_size();
+
         vec![
-            permissions,
+            self.get_permissions(),
             "?".to_string(),
-            "?".to_string(),
-            "?".to_string(),
-            "?".to_string(),
-            "".to_string(),
+            self.get_user_name(),
+            self.get_group_name(),
+            major.clone(),
+            minor.clone(),
             "        ?".to_string(),
             file_name
         ]
@@ -146,6 +146,7 @@ impl Entry {
                     Some(metadata) => Self::color_style_for_metadata(&metadata),
                     None => ColorStyle::BoldRed,
                 };
+                // unwrap here is safe :)
                 let target_name = to_str(self.sym_path.clone().unwrap());
                 file_name.push_str(&apply_color(&target_name, target_color));
             }
@@ -157,7 +158,7 @@ impl Entry {
         if !self.ls_config.l_flag_set {
             return vec![file_name];
         }
-
+        // here also is safe !!!!
         let (major, minor) = self.get_size();
         vec![
             self.get_permissions(),
@@ -171,7 +172,11 @@ impl Entry {
         ]
     }
 
+    // using unwrap here is also safe !!
     fn get_size(&self) -> (String, String) {
+        if self.metadata.is_none() {
+            return ("".to_string(), "?".to_string());
+        }
         let (file_type, _, _) = Self::get_entry_type(&self.metadata.clone().unwrap());
         if file_type == FileType::CharDevice || file_type == FileType::BlockDevice {
             let rdev = self.metadata.clone().unwrap().rdev();
@@ -186,6 +191,7 @@ impl Entry {
         ("".to_string(), self.metadata.clone().unwrap().size().to_string())
     }
 
+    // unwraping metadata is safe here as well !!
     fn get_entry_name(&self) -> String {
         if to_str(&self.path) == self.target_entry && self.path.is_absolute() {
             return to_str(&self.path);
@@ -250,32 +256,55 @@ impl Entry {
         {
             return (FileType::Directory, 'd', '/');
         }
-        match fs::read_dir(self.path.clone().parent().unwrap()) {
-            Ok(mut entries) => {
+
+        let parent = match self.path.parent() {
+            Some(parent) => parent,
+            None => {
+                std::process::exit(2);
+            }
+        };
+        match fs::read_dir(parent) {
+            Ok(entries) => {
                 // Get the first entry or handle empty directory as needed
 
                 for entry in entries {
-                    if entry.as_ref().unwrap().path() == self.path {
-                        if entry.as_ref().unwrap().file_type().unwrap().is_symlink() {
-                            return (FileType::Symlink, 'l', ' ');
-                        } else if entry.as_ref().unwrap().file_type().unwrap().is_dir() {
-                            return (FileType::Directory, 'd', '/');
-                        } else if entry.as_ref().unwrap().file_type().unwrap().is_fifo() {
-                            return (FileType::NamedPipe, 'p', '|');
-                        } else if entry.as_ref().unwrap().file_type().unwrap().is_socket() {
-                            return (FileType::NamedPipe, 'p', '|');
-                        } else if entry.as_ref().unwrap().file_type().unwrap().is_char_device() {
-                            return (FileType::NamedPipe, 'c', ' ');
-                        } else if entry.as_ref().unwrap().file_type().unwrap().is_block_device() {
-                            return (FileType::NamedPipe, 'b', ' ');
-                        } else {
-                            return (FileType::Regular, '-', ' ');
+                    let entry = match entry {
+                        Ok(entry) => entry,
+                        Err(_) => {
+                            std::process::exit(1);
+                        }
+                    };
+                    if entry.path() == self.path {
+                        match entry.file_type() {
+                            Ok(file_type) => if file_type.is_symlink() {
+                                return (FileType::Symlink, 'l', '@');
+                            } else if file_type.is_dir() {
+                                return (FileType::Directory, 'd', '/');
+                            } else if file_type.is_fifo() {
+                                return (FileType::NamedPipe, 'p', '|');
+                            } else if file_type.is_socket() {
+                                return (FileType::Socket, 's', '=');
+                            } else if file_type.is_char_device() {
+                                return (FileType::Socket, 'c', ' ');
+                            } else if file_type.is_block_device() {
+                                return (FileType::Socket, 'b', ' ');
+                            } else if file_type.is_file() {
+                                return (FileType::Regular, '-', ' ');
+                            } else {
+                                return (FileType::Regular, '?', '?');
+                            }
+                            Err(_) => {
+                                // inside here
+                                return (FileType::Regular, '?', '?');
+                            }
                         }
                     }
                 }
-                return (FileType::Regular, '-', ' ');
+                // we couldn't detect
+                return (FileType::Regular, '?', '?');
             }
-            Err(_) => (FileType::Regular, '-', ' '),
+            // for later
+            Err(_) => (FileType::Regular, '?', '?'),
         }
     }
 
@@ -295,6 +324,9 @@ impl Entry {
         }
     }
     fn get_user_name(&self) -> String {
+        if self.metadata.is_none() {
+            return "?".to_string();
+        }
         match get_user_by_uid(self.metadata.clone().unwrap().uid()) {
             Some(user) => to_str(&user.name()),
             None => self.metadata.clone().unwrap().uid().to_string(),
@@ -302,6 +334,9 @@ impl Entry {
     }
 
     fn get_group_name(&self) -> String {
+        if self.metadata.is_none() {
+            return "?".to_string();
+        }
         match get_group_by_gid(self.metadata.clone().unwrap().gid()) {
             Some(group) => to_str(&group.name()),
             None => self.metadata.clone().unwrap().gid().to_string(),
@@ -310,13 +345,21 @@ impl Entry {
 
     fn get_date(&self) -> String {
         let dt = DateTime::<Utc>::from_timestamp(self.metadata.clone().unwrap().mtime(), 0);
-        let datetime = dt.unwrap().with_timezone(&Casablanca);
+        // unwrap() ???
+
+        let datetime = match dt {
+            Some(date) => date,
+            None => {
+                eprintln!("Error: Invalid timestamp");
+                std::process::exit(1);
+            }
+        };
+        let datetime = datetime.with_timezone(&Casablanca);
         let current_date_time = Utc::now().with_timezone(&Casablanca);
-
         let six_months_ago = current_date_time - Duration::days(183);
-        let six_months_future = current_date_time + Duration::days(183);
 
-        if datetime > six_months_ago && datetime < six_months_future {
+        // file can be created with a modification date (custom)
+        if datetime > six_months_ago && datetime < current_date_time {
             return datetime.format("%b %e %H:%M").to_string();
         }
 
@@ -324,6 +367,11 @@ impl Entry {
     }
 
     fn get_permissions(&self) -> String {
+        if self.metadata.is_none() {
+            let (_, symbol, _) = self.get_pseudo_entry_type();
+            symbol.to_string().push_str("?????????");
+            return symbol.to_string();
+        }
         let (_, symbol, _) = Self::get_entry_type(&self.metadata.clone().unwrap().clone());
         let mode = self.metadata.clone().unwrap().permissions().mode();
 
@@ -348,17 +396,7 @@ impl Entry {
             );
         }
 
-        let xattr = unsafe {
-            libc::listxattr(
-                self.path.to_str().unwrap_or("").as_ptr() as *const _,
-                std::ptr::null_mut(),
-                0
-            )
-        };
-        //println!("x attr: {}", xattr );
-        if xattr > 0 {
-            perms.push('+');
-        }
+        // println!("hhh {:?} ", has_acl(&self.path));
 
         perms
     }

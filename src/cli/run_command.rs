@@ -11,6 +11,7 @@ pub fn run_command(cmd: Command) -> i32 {
         name,
         ref args,
         io_streams,
+        ..
     } = cmd;
     
     // let mut exit_status =

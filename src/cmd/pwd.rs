@@ -8,7 +8,13 @@ pub fn pwd(args: &[String]) -> i32 {
 
     match env::var("PWD") {
         Ok(value) => println!("{}", value),
-        Err(e) => eprintln!("0-shell: cd: PWD not set, {}", e)
+        Err(error) => {
+            let res = match env::current_dir() {
+                Ok(val) => val.display().to_string(),
+                Err(err) => format!("0-shell: cd: {error}, {err}")
+            };
+            println!("{}", res)
+        }
     };
 
     0

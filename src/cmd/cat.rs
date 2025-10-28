@@ -11,9 +11,13 @@ fn read_input() {
     for line_result in stdin.lock().lines() {
         match line_result {
             Ok(line) => {
-                if let Err(e) = write!(handle_out, "{}", line) {
+                if let Err(e) = writeln!(handle_out, "{}", line) {
                     eprintln!("cat: write error: {}", e);
                     break;
+                }
+
+                if let Err(e) = handle_out.flush() {
+                    eprintln!("cat: flush error: {}", e);
                 }
             }
             Err(e) => {
@@ -23,10 +27,6 @@ fn read_input() {
                 break;
             }
         }
-    }
-
-    if let Err(e) = handle_out.flush() {
-        eprintln!("cat: flush error: {}", e);
     }
 }
 

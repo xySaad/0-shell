@@ -49,6 +49,23 @@ pub fn rm(mut args: &[String]) -> i32 {
         let mut path = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         path.push(&arg);
 
+        match arg.as_str() {
+            "/" => {
+                eprintln!("rm: refusing to remove root '{}' directory", arg);
+                continue
+            },
+            "." | "./." | "./.." | "../." | "../.." | ".././" | "../../" => {
+                eprintln!("rm: refusing to remove '{}' directory", arg);
+                continue;
+            },
+            _ => {
+                if arg.ends_with("/.") || arg.ends_with("/..") {
+                    eprintln!("rm: refusing to remove '{}' directory", arg);
+                    continue;
+                }
+            }
+        };
+
         // Check if path exist
         if path.symlink_metadata().is_err() {
             eprintln!("rm: cannot remove '{}': No such file or directory", arg);

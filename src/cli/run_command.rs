@@ -13,6 +13,19 @@ pub fn run_command(cmd: Command) -> i32 {
         io_streams,
         ..
     } = cmd;
+    
+    // let mut exit_status =
+    match name.as_str() {
+        "cd" => return cd::cd(args),
+        "pwd" => return pwd::pwd(args),
+        "clear" => return clear(),
+        "exit" => exit(0),
+        _ => {}
+    }
+
+    // if exit_status != 0 {
+    //     exit(exit_status);
+    // }
 
     let pid = unsafe { fork() };
 
@@ -29,9 +42,8 @@ pub fn run_command(cmd: Command) -> i32 {
             "mv" => mv::mv(args),
             "ls"=> ls::run_ls(args),
             "mkdir" => mkdir::mkdir(args),
+            "rm" => rm::rm(args),
             "cat" => cat::cat(args),
-            "exit" => exit(0),
-            "clear" => clear(),
             _ => {
                 eprintln!("Command '{}' not found", name);
                 127

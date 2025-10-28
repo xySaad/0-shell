@@ -12,7 +12,7 @@ pub struct Parser<T: Fn() -> String> {
 }
 
 impl<T: Fn() -> String> Parser<T> {
-    pub fn new(source: &str) -> Parser<T> {
+    pub fn _new(source: &str) -> Parser<T> {
         Self {
             tokenizer: Tokenizer::new(source),
             context: None,

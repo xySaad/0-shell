@@ -50,17 +50,13 @@ pub fn rm(mut args: &[String]) -> i32 {
         path.push(&arg);
 
         match arg.as_str() {
-            "/" => {
-                eprintln!("rm: refusing to remove root '{}' directory", arg);
-                continue
-            },
-            "." | "./." | "./.." | "../." | "../.." | ".././" | "../../" => {
+            "." | ".." | "/" => {
                 // rm: refusing to remove '.' or '..' directory: skipping
                 eprintln!("rm: refusing to remove '{}' directory", arg);
                 continue;
             },
             _ => {
-                if arg.ends_with("/.") || arg.ends_with("/..") {
+                if arg.ends_with("/.") || arg.ends_with("/..") || arg.ends_with("/./") || arg.ends_with("/../") {
                     // rm: refusing to remove '.' or '..' directory: skipping
                     eprintln!("rm: refusing to remove '{}' directory", arg);
                     continue;

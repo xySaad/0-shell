@@ -1,6 +1,5 @@
-use std::env;
-use std::path::{Path, PathBuf};
 use crate::utils::error::clear_error;
+use std::{env, path::{Path, PathBuf}};
 
 pub fn cd(args: &[String]) -> i32 {
     if args.len() > 1 {
@@ -67,7 +66,7 @@ pub fn cd(args: &[String]) -> i32 {
                     pwd.join(other)
                 };
 
-                match change_dir(abs_path.to_str().unwrap(), &current_pwd, other) { // unwrap !!
+                match change_dir(&abs_path.display().to_string(), &current_pwd, other) {
                     Ok(_) => (),
                     Err(e) => {
                         eprintln!("{}", e);
@@ -82,7 +81,8 @@ pub fn cd(args: &[String]) -> i32 {
 }
 
 fn change_dir(target: &str, oldpwd: &str, input: &str) -> Result<(), String> {
-    let path = Path::new(target);
+    let new_path = simple_path(&PathBuf::from(&target));
+    let path = Path::new(&new_path);
     if !path.exists() {
         return Err(format!("0-shell: cd: {}: No such file or directory", input));
     }
@@ -96,7 +96,7 @@ fn change_dir(target: &str, oldpwd: &str, input: &str) -> Result<(), String> {
 
     unsafe {
         env::set_var("OLDPWD", oldpwd);
-        env::set_var("PWD", &simple_path(&PathBuf::from(target)));
+        env::set_var("PWD", new_path);
     }
 
     Ok(())

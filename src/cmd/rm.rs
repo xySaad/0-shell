@@ -96,6 +96,3 @@ pub fn rm(mut args: &[String]) -> i32 {
 
     0
 }
-
-// Try to remove file without permission
-// Error: permission denied

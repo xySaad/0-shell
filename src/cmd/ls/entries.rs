@@ -29,6 +29,7 @@ impl Entries {
                 Some(mut valid_entry) => {
                     entries.push(valid_entry.handle_entry());
                     if valid_entry.metadata.is_some() {
+                        // safe here  to use unwrap as i check if the metadata is soeme :)
                         total += valid_entry.metadata.unwrap().st_blocks();
                     }
                 }
@@ -53,16 +54,14 @@ impl fmt::Display for Entries {
         // eprintln!(" hnaa: {:?}", vec_max);
         if self.target_entry != "" && self.ls_config.num_args > 1 {
             writeln!(f, "{}: ", self.target_entry)?;
-           
+        }
+        if self.entries.is_empty() {
+            return Ok(());
         }
 
         let vec_max = get_column_len(&self.entries);
         if self.ls_config.l_flag_set && self.target_entry != "" {
             writeln!(f, "total {}", self.total)?;
-        }
-
-        if self.entries.is_empty() {
-            return Ok(());
         }
 
         for j in 0..self.entries.len() {

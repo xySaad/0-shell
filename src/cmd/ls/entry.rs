@@ -1,6 +1,6 @@
 use chrono::{ DateTime, Duration, Utc };
 use chrono_tz::Africa::Casablanca;
-use libc::{ major, minor , llistxattr};
+use libc::{ major, minor, llistxattr };
 use std::fs::{ self, Metadata };
 use std::io::{ ErrorKind };
 use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt, DirEntryExt };
@@ -8,7 +8,7 @@ use std::path::{ PathBuf };
 use users::{ get_group_by_gid, get_user_by_uid };
 use std::path::Path;
 
-use super::{ ls_config::LsConfig, utils::{ apply_color } };
+use super::{ ls_config::LsConfig, utils::{ apply_color, to_str } };
 
 #[derive(PartialEq)]
 pub enum FileType {
@@ -83,11 +83,11 @@ impl Entry {
         if metadata.file_type().is_symlink() {
             match fs::read_link(path) {
                 Ok(target_path) => {
-                    sym_path = Some(target_path);
+                    sym_path = Some(target_path.clone());
                     // we need to use metadata to follow the link to the inner target ;)
-                    match fs::metadata(path) {
+                    match fs::metadata(&path) {
                         Ok(some_metadata) => {
-                            sym_metadata = Some(some_metadata);
+                            sym_metadata = Some(some_metadata.clone());
                         }
                         Err(_) => {}
                     };
@@ -146,7 +146,7 @@ impl Entry {
                     Some(metadata) => Self::color_style_for_metadata(&metadata),
                     None => ColorStyle::BoldRed,
                 };
-                let target_name = self.sym_path.clone().unwrap().to_string_lossy().to_string();
+                let target_name = to_str(self.sym_path.clone().unwrap());
                 file_name.push_str(&apply_color(&target_name, target_color));
             }
         }
@@ -187,14 +187,11 @@ impl Entry {
     }
 
     fn get_entry_name(&self) -> String {
-        if self.path.to_string_lossy().to_string() == self.target_entry && self.path.is_absolute() {
-            return self.path.to_string_lossy().to_string();
+        if to_str(&self.path) == self.target_entry && self.path.is_absolute() {
+            return to_str(&self.path);
         }
         // in this case we are obliged to convert to string as for Cargo.toml == Cargo.toml/. in PATH
-        if
-            self.path.to_string_lossy().to_string() ==
-            Path::new(&self.target_entry).join(".").to_string_lossy().to_string()
-        {
+        if to_str(&self.path) == to_str(&Path::new(&self.target_entry).join(".")) {
             return ".".to_string();
         }
         if self.path == Path::new(&self.target_entry).join("..") {
@@ -203,8 +200,8 @@ impl Entry {
 
         self.path
             .file_name()
-            .map(|name| name.to_string_lossy().to_string())
-            .unwrap_or_else(|| self.path.to_string_lossy().to_string())
+            .map(|name| to_str(&name))
+            .unwrap_or_else(|| to_str(&self.path))
     }
 
     fn color_name_style(&self) -> ColorStyle {
@@ -248,10 +245,8 @@ impl Entry {
     pub fn get_pseudo_entry_type(&self) -> (FileType, char, char) {
         // we need the absolute path otherwise it worn't work :)
         if
-            self.path.to_string_lossy().to_string() ==
-                Path::new(&self.target_entry).join(".").to_string_lossy().to_string() ||
-            self.path.to_string_lossy().to_string() ==
-                Path::new(&self.target_entry).join("..").to_string_lossy().to_string()
+            to_str(&self.path) == to_str(&Path::new(&self.target_entry).join(".")) ||
+            to_str(&self.path) == to_str(&Path::new(&self.target_entry).join(".."))
         {
             return (FileType::Directory, 'd', '/');
         }
@@ -301,14 +296,14 @@ impl Entry {
     }
     fn get_user_name(&self) -> String {
         match get_user_by_uid(self.metadata.clone().unwrap().uid()) {
-            Some(user) => user.name().to_string_lossy().to_string(),
+            Some(user) => to_str(&user.name()),
             None => self.metadata.clone().unwrap().uid().to_string(),
         }
     }
 
     fn get_group_name(&self) -> String {
         match get_group_by_gid(self.metadata.clone().unwrap().gid()) {
-            Some(group) => group.name().to_string_lossy().to_string(),
+            Some(group) => to_str(&group.name()),
             None => self.metadata.clone().unwrap().gid().to_string(),
         }
     }

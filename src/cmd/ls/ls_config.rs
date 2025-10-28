@@ -8,7 +8,7 @@ use std::env;
 use super::{
     entries::{ Entries },
     entry::{ FileType, Entry },
-    utils::{ is_directory, is_file, sort_entries },
+    utils::{ is_directory, is_file, sort_entries, to_str },
 };
 
 #[derive(Debug, Eq, Clone, PartialEq)]
@@ -84,9 +84,20 @@ impl LsConfig {
                 Ok(_) => {
                     self.target_paths.push(".".to_string());
                 }
-                Err(_) => {}
+                Err(e) => {
+                    match e.kind() {
+                        ErrorKind::NotFound => {
+                            if self.l_flag_set {
+                                println!("total 0");
+                            }
+                        }
+                        _ => {}
+                    }
+                }
             };
         }
+
+        
     }
 
     // if any error is encountered the function must return the status code
@@ -197,13 +208,13 @@ pub fn process_dirs(
                     }
                 }
                 paths.sort_by(|a, b| {
-                    let binding_a = a.clone().file_name().unwrap().to_string_lossy().to_string();
+                    let binding_a = to_str(a.clone().file_name().unwrap());
                     let cleaned_a: String = binding_a
                         .chars()
                         .filter(|c| !c.is_ascii_punctuation())
                         .collect();
 
-                    let binding_b = b.clone().file_name().unwrap().to_string_lossy().to_string();
+                    let binding_b = to_str(b.clone().file_name().unwrap());
 
                     let cleaned_b: String = binding_b
                         .chars()

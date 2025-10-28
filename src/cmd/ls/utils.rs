@@ -1,6 +1,8 @@
 use colored::Colorize;
-use std::path::Path;
+use std::path::{ Path, PathBuf };
+use std::ffi::OsStr;
 use std::fs;
+
 use super::{ entry::ColorStyle, ls_config::LsConfig };
 
 pub fn apply_color(result: &str, style: ColorStyle) -> String {
@@ -77,7 +79,7 @@ pub fn is_file(target_path: String, ls_config: &LsConfig) -> bool {
 }
 
 // fn to sort the files and the folders
-pub fn sort_entries( files: &mut Vec<String>) {
+pub fn sort_entries(files: &mut Vec<String>) {
     files.sort_by(|a, b| {
         let cleaned_a: String = a
             .chars()
@@ -89,8 +91,12 @@ pub fn sort_entries( files: &mut Vec<String>) {
             .filter(|c| !c.is_ascii_punctuation())
             .collect();
 
-
-        
         cleaned_a.to_ascii_lowercase().cmp(&cleaned_b.to_ascii_lowercase())
     });
 }
+
+pub fn to_str<T: AsRef<OsStr>>(path: T) -> String {
+    path.as_ref().to_string_lossy().into_owned()
+}
+
+

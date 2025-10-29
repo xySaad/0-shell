@@ -1,4 +1,4 @@
-use crate::compiler::{command::Command, nodes::Node, parser::Parser, tokens::Operator};
+use crate::interpreter::{command::Command, nodes::Node, parser::Parser, tokens::Operator};
 use std::{
     env,
     io::{Read, pipe},

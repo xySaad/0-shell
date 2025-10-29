@@ -1,6 +1,6 @@
 use std::env;
 
-use crate::compiler::{
+use crate::interpreter::{
     nodes::{self, Node, Sequence, SubstitutionKind},
     tokenizer::Tokenizer,
     tokens::{self, Quote, Token},

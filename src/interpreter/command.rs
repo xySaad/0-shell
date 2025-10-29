@@ -1,5 +1,5 @@
 use crate::{
-    compiler::tokens::RedirectionKind::{self, *},
+    interpreter::tokens::RedirectionKind::{self, *},
     utils::error::StrError,
 };
 use libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, dup, dup2};

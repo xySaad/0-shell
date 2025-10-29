@@ -372,7 +372,7 @@ impl Entry {
             symbol.to_string().push_str("?????????");
             return symbol.to_string();
         }
-        let (_, symbol, _) = Self::get_entry_type(&self.metadata.clone().unwrap().clone());
+        let (entry_type, symbol, _) = Self::get_entry_type(&self.metadata.clone().unwrap().clone());
         let mode = self.metadata.clone().unwrap().permissions().mode();
 
         let mut perms = String::with_capacity(10);
@@ -396,7 +396,10 @@ impl Entry {
             );
         }
 
-        // println!("hhh {:?} ", has_acl(&self.path));
+       
+        if has_acl(&self.path, entry_type) {
+            perms.push('+');
+        }
 
         perms
     }

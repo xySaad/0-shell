@@ -1,10 +1,10 @@
 use colored::Colorize;
 use std::path::{ Path };
-use std::ffi::{OsStr, c_char};
+use std::ffi::{ OsStr, c_char };
 use std::{ fs, ptr };
 use libc::{ llistxattr };
 
-use super::{ entry::ColorStyle, ls_config::LsConfig };
+use super::{ entry::{ColorStyle, FileType}, ls_config::LsConfig };
 
 pub fn apply_color(result: &str, style: ColorStyle) -> String {
     match style {
@@ -103,12 +103,28 @@ pub fn to_str<T: AsRef<OsStr>>(path: T) -> String {
 
 // method to check the acl from the extra attributes
 // we need to work with llistxattr
-pub fn has_acl(path: &Path) -> bool {
-    let size = unsafe { llistxattr(path.to_str().unwrap_or("").as_ptr() as *const c_char, ptr::null_mut(), 0) };
-    // if size returns -1 (so there is no extra attribure )
-    if size > 0 {
-
+pub fn has_acl(path: &Path , entry_type: FileType) -> bool {
+    let acl = match xattr::get(path, "system.posix_acl_access") {
+        Ok(option) => {
+            match option {
+                Some(_)=> {return true; }
+                None=> {return false; }
+            }
+        },
+        Err(_) => false,
+    };
+    let default_acl = match xattr::get(path, "system.posix_acl_default") {
+        Ok(option) => {
+            match option {
+                Some(_)=> {return true; }
+                None=> {return false; }
+            }
+        },
+        Err(_) => false,
+    };
+ 
+    if entry_type== FileType::Directory {
+        return acl || default_acl; 
     }
-   
-    true
+    acl 
 }

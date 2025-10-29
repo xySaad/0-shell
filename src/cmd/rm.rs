@@ -9,7 +9,7 @@ pub fn rm(mut args: &[String]) -> i32 {
 
     let mut recursive = false;
     let mut paths: Vec<String> = Vec::new();
-    let limiter_idx = args.iter().position(|val| val == &("--").to_string());
+    let limiter_idx = args.iter().position(|val| val == "--");
 
     if let Some(idx) = limiter_idx {
         paths = args[idx + 1..].to_vec();
@@ -18,7 +18,7 @@ pub fn rm(mut args: &[String]) -> i32 {
 
     for opperand in args {
         match opperand.as_str() {
-            "-r" | "--r" => recursive = true,
+            "-r" => recursive = true,
             "---" => (),
             _ => {
                 if opperand != "-" && opperand.starts_with("-") {
@@ -62,7 +62,7 @@ pub fn rm(mut args: &[String]) -> i32 {
         };
 
         // Check if path exist
-        if path.symlink_metadata().is_err() {
+        if !path.exists() {
             eprintln!("rm: cannot remove '{}': No such file or directory", arg);
             continue;
         }

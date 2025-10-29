@@ -42,8 +42,8 @@ pub fn run_command(cmd: Command) -> i32 {
             "mv" => mv::mv(args),
             "ls"=> ls::run_ls(args),
             "mkdir" => mkdir::mkdir(args),
-            "rm" => rm::rm(args),
             "cat" => cat::cat(args),
+            "rm" => rm::rm(args),
             _ => {
                 eprintln!("Command '{}' not found", name);
                 127

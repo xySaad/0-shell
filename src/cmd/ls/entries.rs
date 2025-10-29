@@ -20,10 +20,16 @@ impl Entries {
         for path in paths {
             // as we have access to the ls_config we can mutate the value of the status code
             // here we will need also to handle if it is a directory or just a file "" for or ...
-            match Entry::new(path, ls_config, target_entry) {
+            let group_name: String = if target_entry.is_empty() {
+                path.to_string_lossy().into_owned()
+            } else {
+                target_entry.clone()
+            };
+            match Entry::new(path, ls_config, &group_name) {
                 Some(mut valid_entry) => {
                     entries.push(valid_entry.handle_entry());
                     if valid_entry.metadata.is_some() {
+                        // safe here  to use unwrap as i check if the metadata is soeme :)
                         total += valid_entry.metadata.unwrap().st_blocks();
                     }
                 }
@@ -39,25 +45,27 @@ impl Entries {
     }
 }
 
-// don't know if it will work
-// i will need the ls_config
 impl fmt::Display for Entries {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        //  iterate through the columns to find the max
-        let vec_max = get_column_len(&self.entries);
+        if self.entries.is_empty() && !self.ls_config.l_flag_set && self.ls_config.num_args == 1 {
+            return Ok(());
+        }
+
         // eprintln!(" hnaa: {:?}", vec_max);
         if self.target_entry != "" && self.ls_config.num_args > 1 {
             writeln!(f, "{}: ", self.target_entry)?;
         }
+       
 
+        let vec_max = get_column_len(&self.entries);
         if self.ls_config.l_flag_set && self.target_entry != "" {
-            write!(f, "total {}", self.total)?;
-            // here just if there are nothing in the entries empty 
-            if vec_max.len() != 0 {
-                writeln!(f)?;
-            }
+            writeln!(f, "total {}", self.total)?;
         }
-        // we need to find the max for each field
+        // must bve in here to be able to display the total 0 when the dir is empty 
+         if self.entries.is_empty() {
+            return Ok(());
+        }
+
         for j in 0..self.entries.len() {
             //eprintln!("entries : {:?}", self.entries);
             let mut line = String::new();
@@ -81,10 +89,7 @@ impl fmt::Display for Entries {
                     line.push_str(&formatted);
                 }
             }
-            write!(f, "{}", line.trim())?;
-            if j != self.entries.len() - 1 {
-                writeln!(f)?;
-            }
+            writeln!(f, "{}", line.trim())?;
         }
 
         Ok(())

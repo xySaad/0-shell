@@ -3,8 +3,12 @@ use std::io;
 use std::io::{ ErrorKind };
 use std::fs::{ self };
 use std::cell::RefCell;
+use std::env;
 
-use super::{ entries::{ Entries }, entry::{ FileType, Entry }, utils::{ is_broken_link, is_dir } };
+use super::{
+    entries::{ Entries }, 
+    utils::{ is_directory, is_file, sort_entries, to_str },
+};
 
 #[derive(Debug, Eq, Clone, PartialEq)]
 pub struct LsConfig {
@@ -23,12 +27,12 @@ impl LsConfig {
     pub fn new(args: &Vec<String>) -> Self {
         let flags = args
             .iter()
-            .filter(|a| a.starts_with('-'))
+            .filter(|a| a.starts_with('-') && a.len() > 1)
             .cloned() // hadiiii 7itash bla biha &String instead of owned Strings // and i don't want to consume l args
             .collect();
         let targets: Vec<String> = args
             .iter()
-            .filter(|a| !a.starts_with('-'))
+            .filter(|a| !a.starts_with('-') || *a == "-")
             .cloned()
             .collect();
         Self {
@@ -45,8 +49,13 @@ impl LsConfig {
     }
     // didn't like too much i'll see if there is another way to do the same thing!
     fn parse(&mut self) {
-        for flag in &self.flags {
-            for c in flag.chars().skip(1) {
+        for (i, flag) in self.flags.iter().enumerate() {
+            if flag == "--" {
+                self.target_paths.extend(self.flags[i + 1..].iter().cloned().collect::<Vec<_>>());
+                self.num_args = self.target_paths.len();
+                break;
+            }
+            for (_, c) in flag.chars().enumerate().skip(1) {
                 match c {
                     'a' => {
                         self.a_flag_set = true;
@@ -57,6 +66,7 @@ impl LsConfig {
                     'F' => {
                         self.f_flag_set = true;
                     }
+
                     _ => {
                         eprintln!("ls: invalid option -- '{c}'");
                         std::process::exit(2);
@@ -66,10 +76,27 @@ impl LsConfig {
         }
 
         // if the target_paths is 0 push the default to targets_paths
-
+        // we need to check the current directory if exists ;)
+        // it could be removed while we are at it
         if self.target_paths.len() == 0 {
-            self.target_paths.push(".".to_string());
+            match env::current_dir() {
+                Ok(_) => {
+                    self.target_paths.push(".".to_string());
+                }
+                Err(e) => {
+                    match e.kind() {
+                        ErrorKind::NotFound => {
+                            if self.l_flag_set {
+                                println!("total 0");
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            };
         }
+
+        
     }
 
     // if any error is encountered the function must return the status code
@@ -94,32 +121,21 @@ impl LsConfig {
         // exists won't work here because it's part of metadata
         self.target_paths.retain(|target_path| { fs::symlink_metadata(target_path).is_ok() });
 
-        // filter out the dirs and the files and then sort them alphabeticallly
-        // things got messier here :)
         self.target_dirs = self.target_paths
             .iter()
-            .filter(|target_path| {
-                (fs::symlink_metadata(target_path).unwrap().is_dir() &&
-                    !fs::symlink_metadata(target_path).unwrap().is_symlink()) ||
-                    (fs::symlink_metadata(target_path).unwrap().is_symlink() && is_dir(target_path.to_string()) &&
-                        !is_broken_link(target_path.to_string()) &&
-                        !self.l_flag_set &&
-                        !self.f_flag_set)
-            })
+            .filter(|target_path| is_directory(target_path.to_string(), self))
             .cloned()
             .collect();
+
         self.target_files = self.target_paths
             .iter()
-            .filter(|target_path| {
-                fs::symlink_metadata(target_path).unwrap().is_file() ||
-                    (fs::symlink_metadata(target_path).unwrap().is_symlink() &&
-                        (self.l_flag_set || self.f_flag_set) || !is_dir(target_path.to_string())) ||
-                    is_broken_link(target_path.to_string())
-            })
+            .filter(|target_path| is_file(target_path.to_string(), self))
             .cloned()
             .collect();
-        self.target_dirs.sort_by(|a, b| a.to_ascii_lowercase().cmp(&b.to_ascii_lowercase()));
-        self.target_files.sort_by(|a, b| a.to_ascii_lowercase().cmp(&b.to_ascii_lowercase()));
+
+        // remove the spacial characters from the files before procedding to the sort
+        sort_entries(&mut self.target_dirs);
+        sort_entries(&mut self.target_files);
     }
 
     pub fn process_files(&self) {
@@ -128,9 +144,8 @@ impl LsConfig {
             .map(|target_path| Path::new(target_path).to_path_buf())
             .collect();
         let target_path = "".to_string();
-
         let entries = Entries::new(&files, self, &target_path);
-        println!("{}", entries);
+        print!("{}", entries);
         if self.target_dirs.len() != 0 {
             println!();
         }
@@ -144,21 +159,10 @@ impl LsConfig {
         }
         let mut iter = process_dirs(self).into_iter().peekable();
         while let Some((target_path, resulted_entry)) = iter.peek() {
-            let is_directory = match
-                Entry::new(&Path::new(&target_path).to_path_buf(), self, &target_path)
-            {
-                Some(valid_entry) =>
-                    match valid_entry.metadata {
-                        Some(metadata) => Entry::get_entry_type(&metadata).0 == FileType::Directory,
-                        None => valid_entry.get_pseudo_entry_type().0 == FileType::Directory,
-                    }
-                None => false,
-            };
-            //println!("{:?}", resulted_entry);
             match resulted_entry {
                 Ok(entries_vec) => {
                     let entries = Entries::new(&entries_vec, self, &target_path);
-                    println!("{}", entries);
+                    print!("{}", entries);
                 }
                 Err(e) => {
                     match e.kind() {
@@ -188,11 +192,6 @@ pub fn process_dirs(
     ls_config: &LsConfig
 ) -> impl Iterator<Item = (String, Result<Vec<PathBuf>, io::Error>)> {
     ls_config.target_dirs.iter().map(|target_path| {
-        let path = Path::new(target_path);
-        // if
-        //     (path.is_symlink() && !ls_config.l_flag_set && !ls_config.f_flag_set) ||
-        //     (path.is_dir() && !path.is_symlink())
-        // {
         match fs::read_dir(target_path) {
             Ok(entries) => {
                 let mut paths = Vec::new();
@@ -207,12 +206,19 @@ pub fn process_dirs(
                     }
                 }
                 paths.sort_by(|a, b| {
-                    let binding_a = a.clone().file_name().unwrap().to_string_lossy().to_string();
-                    let entry_a = binding_a.strip_prefix(".").unwrap_or(&binding_a);
-                    let binding_b = b.clone().file_name().unwrap().to_string_lossy().to_string();
+                    let binding_a = to_str(a.clone().file_name().unwrap());
+                    let cleaned_a: String = binding_a
+                        .chars()
+                        .filter(|c| !c.is_ascii_punctuation())
+                        .collect();
 
-                    let entry_b = binding_b.strip_prefix(".").unwrap_or(&binding_b);
-                    entry_a.to_lowercase().cmp(&entry_b.to_lowercase())
+                    let binding_b = to_str(b.clone().file_name().unwrap());
+
+                    let cleaned_b: String = binding_b
+                        .chars()
+                        .filter(|c| !c.is_ascii_punctuation())
+                        .collect();
+                    cleaned_a.to_ascii_lowercase().cmp(&cleaned_b.to_ascii_lowercase())
                 });
 
                 let paths = if ls_config.a_flag_set {
@@ -236,9 +242,6 @@ pub fn process_dirs(
                 return (target_path.clone(), Err(e));
             }
         };
-        // } else {
-        //     return (target_path.clone(), Ok(vec![Path::new(target_path).to_path_buf()]));
-        // }
     })
 }
 

@@ -1,7 +1,7 @@
 use crate::cli::read_input;
 mod cli;
 mod cmd;
-mod compiler;
+mod interpreter;
 mod utils;
 
 

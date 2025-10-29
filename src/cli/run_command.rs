@@ -3,7 +3,7 @@ use std::process::exit;
 use libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, c_int, close, fork, waitpid};
 
 use crate::cmd::{clear::clear, *};
-use crate::compiler::command::Command;
+use crate::interpreter::command::Command;
 
 // forks a command and returns exit status
 pub fn run_command(cmd: Command) -> i32 {
@@ -11,12 +11,12 @@ pub fn run_command(cmd: Command) -> i32 {
         name,
         ref args,
         io_streams,
+        ..
     } = cmd;
     
     // let mut exit_status =
     match name.as_str() {
         "cd" => return cd::cd(args),
-        "pwd" => return pwd::pwd(args),
         "clear" => return clear(),
         "exit" => exit(0),
         _ => {}
@@ -38,11 +38,11 @@ pub fn run_command(cmd: Command) -> i32 {
         let exit_status = match name.as_str() {
             "echo" => echo(args),
             "cp" => cp::cp(args),
+            "pwd" => return pwd::pwd(args),
+            "mv" => mv::mv(args),
             "ls"=> ls::run_ls(args),
             "mkdir" => mkdir::mkdir(args),
             "cat" => cat::cat(args),
-            "exit" => exit(0),
-            "clear" => clear(),
             "rm" => rm::rm(args),
             _ => {
                 eprintln!("Command '{}' not found", name);

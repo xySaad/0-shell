@@ -1,7 +1,8 @@
 use crate::{
     cli::{self, run_command},
-    compiler::interpreter::Interpreter,
+    interpreter::interpreter::Interpreter,
 };
+use core::error;
 use std::{
     io::{Write, stderr, stdin},
     process::exit,
@@ -32,6 +33,10 @@ pub fn read_input() {
 
         let commands = inter.parse_line(&input);
         for command in commands {
+            if let Some(error) = command.error {
+                eprint!("{error}");
+                continue;
+            }
             if command.name.trim().is_empty() {
                 continue;
             }

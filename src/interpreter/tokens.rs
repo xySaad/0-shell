@@ -57,6 +57,7 @@ pub enum Token {
     Operator(Operator),
     BackSlash,
     DollarSign,
+    Tilde,
     EOF,
 }
 
@@ -76,6 +77,7 @@ impl From<char> for Token {
             '\\' => BackSlash,
             '$' => DollarSign,
             ' ' | '\n' | '\t' => WhiteSpace(ch),
+            '~' => Tilde,
             _ => RawChar(ch),
         }
     }
@@ -84,6 +86,7 @@ impl From<char> for Token {
 impl From<Token> for String {
     fn from(t: Token) -> Self {
         match t {
+            Tilde => '~',
             WhiteSpace(ch) => ch,
             RawChar(ch) => ch,
             Token::Quote(quote) => match quote {

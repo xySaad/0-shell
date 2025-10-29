@@ -1,4 +1,6 @@
-use crate::compiler::{
+use std::env;
+
+use crate::interpreter::{
     nodes::{self, Node, Sequence, SubstitutionKind},
     tokenizer::Tokenizer,
     tokens::{self, Quote, Token},
@@ -178,6 +180,13 @@ impl<T: Fn() -> String> Iterator for Parser<T> {
 
         let parent = self.context;
         let node = match current {
+            Token::Tilde => {
+                if self.context == Some(Token::Quote(Quote::Double)) {
+                    Node::Raw("~".into())
+                } else {
+                    Node::Raw(env::var("HOME").unwrap_or_default())
+                }
+            }
             Token::RawChar(ch) => Node::Raw(self.get_raw(ch)),
             Token::Quote(q) => self.get_quoted(q),
             Token::DollarSign => self.handle_dollar_sign(),

@@ -3,7 +3,7 @@ use std::process::exit;
 use libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, c_int, close, fork, waitpid};
 
 use crate::cmd::{clear::clear, *};
-use crate::compiler::command::Command;
+use crate::interpreter::command::Command;
 
 // forks a command and returns exit status
 pub fn run_command(cmd: Command) -> i32 {

@@ -1,5 +1,6 @@
-use crate::utils::error::strerror;
 use std::fs;
+use crate::utils::error::{clear_error};
+
 
 pub fn mkdir(args: &[String]) -> i32 {
     if args.is_empty() {
@@ -13,13 +14,7 @@ pub fn mkdir(args: &[String]) -> i32 {
         match fs::create_dir(dir) {
             Ok(_) => {}
             Err(e) => {
-                let msg = if let Some(errno) = e.raw_os_error() {
-                    strerror(errno)
-                } else {
-                    e.to_string()
-                };
-
-                eprintln!("mkdir: cannot create directory '{}': {}", dir, msg);
+                eprintln!("mkdir: cannot create directory '{}': {}", dir, clear_error(e));
                 counter += 1;
             }
         }

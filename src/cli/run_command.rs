@@ -39,6 +39,7 @@ pub fn run_command(cmd: Command) -> i32 {
             "echo" => echo(args),
             "cp" => cp::cp(args),
             "pwd" => return pwd::pwd(args),
+            "mv" => mv::mv(args),
             "ls"=> ls::run_ls(args),
             "mkdir" => mkdir::mkdir(args),
             "rm" => rm::rm(args),

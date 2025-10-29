@@ -1,6 +1,6 @@
 use chrono::{ DateTime, Duration, Utc };
 use chrono_tz::Africa::Casablanca;
-use libc::{ major, minor, llistxattr };
+use libc::{ major, minor };
 use std::fs::{ self, Metadata };
 use std::io::{ ErrorKind };
 use std::os::unix::fs::{ FileTypeExt, MetadataExt, PermissionsExt };

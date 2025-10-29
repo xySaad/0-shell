@@ -1,8 +1,8 @@
 use colored::Colorize;
 use std::path::{ Path };
-use std::ffi::{ OsStr, c_char };
-use std::{ fs, ptr };
-use libc::{ llistxattr };
+use std::ffi::{ OsStr };
+use std::{ fs };
+
 
 use super::{ entry::{ColorStyle, FileType}, ls_config::LsConfig };
 

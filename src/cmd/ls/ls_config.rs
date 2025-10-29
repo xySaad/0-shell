@@ -6,8 +6,7 @@ use std::cell::RefCell;
 use std::env;
 
 use super::{
-    entries::{ Entries },
-    entry::{ FileType, Entry },
+    entries::{ Entries }, 
     utils::{ is_directory, is_file, sort_entries, to_str },
 };
 
@@ -193,7 +192,6 @@ pub fn process_dirs(
     ls_config: &LsConfig
 ) -> impl Iterator<Item = (String, Result<Vec<PathBuf>, io::Error>)> {
     ls_config.target_dirs.iter().map(|target_path| {
-        let path = Path::new(target_path);
         match fs::read_dir(target_path) {
             Ok(entries) => {
                 let mut paths = Vec::new();

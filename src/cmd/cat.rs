@@ -1,3 +1,4 @@
+use crate::utils::error::clear_error;
 use std::fs;
 use std::io::{self, BufRead, Write};
 
@@ -7,13 +8,22 @@ fn read_input() {
     let stdout = io::stdout();
     let mut handle_out = stdout.lock();
 
-    for line in stdin.lock().lines() {
-        match line {
-            Ok(l) => {
-                writeln!(handle_out, "{}", l).unwrap();
+    for line_result in stdin.lock().lines() {
+        match line_result {
+            Ok(line) => {
+                if let Err(e) = writeln!(handle_out, "{}", line) {
+                    eprintln!("cat: write error: {}", e);
+                    break;
+                }
+
+                if let Err(e) = handle_out.flush() {
+                    eprintln!("cat: flush error: {}", e);
+                }
             }
             Err(e) => {
-                writeln!(handle_out, "cat: stdin: {}", e).unwrap();
+                if let Err(write_err) = writeln!(handle_out, "cat: stdin: {}", e) {
+                    eprintln!("cat: failed to write error message: {}", write_err);
+                }
                 break;
             }
         }
@@ -26,7 +36,7 @@ pub fn cat(args: &[String]) -> i32 {
 
     if args.is_empty() {
         read_input();
-        return 0; 
+        return 0;
     }
 
     for (_, filename) in args.iter().enumerate() {
@@ -34,9 +44,16 @@ pub fn cat(args: &[String]) -> i32 {
             read_input();
         } else {
             match fs::read_to_string(filename) {
-                Ok(content) => print!("{}\n", content),
+                Ok(content) => {
+                    print!("{}", content);
+
+                    if let Err(e) = io::stdout().flush() {
+                        eprintln!("cat: {}: flush error: {}", filename, e);
+                        all_ok = false;
+                    }
+                }
                 Err(e) => {
-                    eprintln!("cat: {}: {}", filename, e);
+                    eprintln!("cat: {}: {}", filename, clear_error(e));
                     all_ok = false
                 }
             }

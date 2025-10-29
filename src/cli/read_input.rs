@@ -1,6 +1,6 @@
 use crate::{
     cli::{self, run_command},
-    compiler::interpreter::Interpreter,
+    interpreter::interpreter::Interpreter,
 };
 use core::error;
 use std::{

@@ -55,13 +55,15 @@ impl fmt::Display for Entries {
         if self.target_entry != "" && self.ls_config.num_args > 1 {
             writeln!(f, "{}: ", self.target_entry)?;
         }
-        if self.entries.is_empty() {
-            return Ok(());
-        }
+       
 
         let vec_max = get_column_len(&self.entries);
         if self.ls_config.l_flag_set && self.target_entry != "" {
             writeln!(f, "total {}", self.total)?;
+        }
+        // must bve in here to be able to display the total 0 when the dir is empty 
+         if self.entries.is_empty() {
+            return Ok(());
         }
 
         for j in 0..self.entries.len() {
